@@ -1,8 +1,14 @@
 # 🚀 Development Plan: CT-System Migration (PHP → Go)
 
 **Дата создания:** 14 декабря 2024  
-**Проект:** CT-System Web Application  
+**Дата восстановления:** 2026-02-10  
+**Проект:** CT-System Web Application (Go)  
 **Миграция:** PHP → Go (Gin Framework)
+
+**Статус восстановления:**
+- ✅ Восстановлен рабочий каркас и основные модули (auth, users, groups, exchanges, exchange accounts)
+- 🔴 Не восстановлены бизнес-модули (positions, market analysis, daemon, coins)
+- 🔴 Первая задача: унификация логирования с hsm-service (slog + JSON + stdout + file + lumberjack)
 
 ---
 
@@ -181,17 +187,25 @@ require (
 
 ## 📊 Фазы разработки
 
+### Priority 0: Унификация логирования (первая задача)
+
+- Перевести Web UI на `log/slog` (как в hsm-service)
+- Формат: JSON
+- Вывод: stdout + file
+- Ротация: lumberjack
+- Удалить `zerolog`
+
 ### Фаза 1: Базовая инфраструктура (1-2 недели)
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 1.1 | Создать структуру директорий проекта | ☐ |
-| 1.2 | Настроить конфигурацию (YAML config loader) | ☐ |
-| 1.3 | Подключение к БД (connection pool, транзакции) | ☐ |
-| 1.4 | Система логирования (zerolog) | ☐ |
-| 1.5 | Security Middleware (XSS, CSRF, headers) | ☐ |
-| 1.6 | Централизованная обработка ошибок | ☐ |
-| 1.7 | Recovery middleware (panic handling) | ☐ |
+| 1.1 | Создать структуру директорий проекта | ✅ |
+| 1.2 | Настроить конфигурацию (YAML config loader) | ✅ |
+| 1.3 | Подключение к БД (connection pool, транзакции) | ✅ |
+| 1.4 | Система логирования (сейчас zerolog, целевой slog) | ✅ |
+| 1.5 | Security Middleware (XSS, CSRF, headers) | ⚠️ |
+| 1.6 | Централизованная обработка ошибок | ✅ |
+| 1.7 | Recovery middleware (panic handling) | ✅ |
 
 **Результат:** Готовая инфраструктура для разработки
 
@@ -201,15 +215,15 @@ require (
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 2.1 | User Model (структура с группами) | ☐ |
-| 2.2 | Auth Service (Login, Logout, Remember Me) | ☐ |
-| 2.3 | Password Hashing (bcrypt, как в PHP) | ☐ |
-| 2.4 | Session Management (Cookie + DB token) | ☐ |
-| 2.5 | Auth Middleware (проверка сессии, редирект) | ☐ |
-| 2.6 | Role-based Access (Admin vs User) | ☐ |
-| 2.7 | Login Page (шаблон + AJAX) | ☐ |
-| 2.8 | 404 Page (в едином стиле) | ☐ |
-| 2.9 | Logout функционал | ☐ |
+| 2.1 | User Model (структура с группами) | ✅ |
+| 2.2 | Auth Service (Login, Logout, Remember Me) | ✅ |
+| 2.3 | Password Hashing (bcrypt, как в PHP) | ✅ |
+| 2.4 | Session Management (Cookie + DB token) | ✅ |
+| 2.5 | Auth Middleware (проверка сессии, редирект) | ✅ |
+| 2.6 | Role-based Access (Admin vs User) | ✅ |
+| 2.7 | Login Page (шаблон + AJAX) | ✅ |
+| 2.8 | 404 Page (в едином стиле) | ✅ |
+| 2.9 | Logout функционал | ✅ |
 
 **Логика аутентификации:**
 1. Session-based authentication
@@ -225,14 +239,14 @@ require (
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.1 | Group Model и Repository | ☐ |
-| 3.2 | User Model и Repository | ☐ |
-| 3.3 | DataTables API (server-side processing) | ☐ |
-| 3.4 | User Controller (List, Create, Edit, GetById) | ☐ |
-| 3.5 | Group Controller (List, Create, Edit, GetById) | ☐ |
-| 3.6 | Валидация (пароль, email, уникальность login) | ☐ |
-| 3.7 | UI Templates (страницы Users, Groups) | ☐ |
-| 3.8 | Модальные формы создания/редактирования | ☐ |
+| 3.1 | Group Model и Repository | ✅ |
+| 3.2 | User Model и Repository | ✅ |
+| 3.3 | DataTables API (server-side processing) | ✅ |
+| 3.4 | User Controller (List, Create, Edit, GetById) | ✅ |
+| 3.5 | Group Controller (List, Create, Edit, GetById) | ✅ |
+| 3.6 | Валидация (пароль, email, уникальность login) | ⚠️ |
+| 3.7 | UI Templates (страницы Users, Groups) | ✅ |
+| 3.8 | Модальные формы создания/редактирования | ⚠️ |
 
 **API Endpoints:**
 ```
@@ -257,12 +271,12 @@ GET  /groups/ajax_getid_group  → Получить по ID
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 4.1 | Exchange Model и Repository | ☐ |
-| 4.2 | Exchange Account Model и Repository | ☐ |
-| 4.3 | Exchange Service (валидация, бизнес-логика) | ☐ |
-| 4.4 | Exchange Controller (List, Create, Edit) | ☐ |
-| 4.5 | Exchange Account Controller | ☐ |
-| 4.6 | UI Templates (Exchanges, Exchange Accounts) | ☐ |
+| 4.1 | Exchange Model и Repository | ✅ |
+| 4.2 | Exchange Account Model и Repository | ✅ |
+| 4.3 | Exchange Service (валидация, бизнес-логика) | ✅ |
+| 4.4 | Exchange Controller (List, Create, Edit) | ✅ |
+| 4.5 | Exchange Account Controller | ✅ |
+| 4.6 | UI Templates (Exchanges, Exchange Accounts) | ✅ |
 
 **API Endpoints:**
 ```
@@ -378,14 +392,14 @@ POST /coins/ajax_update_coins
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 8.1 | XSS Protection (bluemonday sanitization) | ☐ |
+| 8.1 | XSS Protection (bluemonday sanitization) | ⚠️ |
 | 8.2 | CSRF Protection (gorilla/csrf) | ☐ |
-| 8.3 | SQL Injection (prepared statements) | ☐ |
-| 8.4 | Rate Limiting (защита от brute-force) | ☐ |
-| 8.5 | Secure Headers (X-Frame-Options, CSP) | ☐ |
-| 8.6 | Input Validation (все входные данные) | ☐ |
+| 8.3 | SQL Injection (prepared statements) | ✅ |
+| 8.4 | Rate Limiting (защита от brute-force) | ⚠️ |
+| 8.5 | Secure Headers (X-Frame-Options, CSP) | ✅ |
+| 8.6 | Input Validation (все входные данные) | ⚠️ |
 | 8.7 | Nginx Configuration | ☐ |
-| 8.8 | Dockerfile | ☐ |
+| 8.8 | Dockerfile | ✅ |
 | 8.9 | Тестирование безопасности | ☐ |
 | 8.10 | Документация API | ☐ |
 
