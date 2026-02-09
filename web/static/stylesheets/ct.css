@@ -1,0 +1,133 @@
+/*Tables*/
+.dt-body-right { 
+    text-align: right !important
+}
+.hoveredd {background-color: #88aadd !important; }
+.selectedd {background-color: #88aadd !important; }
+/*------Таблица чарджбеков---------*/
+
+.force-align-left {
+    text-align: left !important;
+}
+.force-align-left-icon {
+    padding-left: 0px;
+}
+.datetimepicker {
+     z-index: 1600 !important; /* has to be larger than 1050 */
+}
+.switch {
+  /*  display: initial !important;*/
+}
+.uneditable-input-width-600 {
+    width: 600px;
+}
+.pseudo_link {
+    font-size:100%;
+    color:#1867cf;
+    cursor: hand; 
+    cursor: pointer;
+}
+.err {
+    background-color: #f48e70;
+}
+/*Полоса прокрутки таблицы вверху*/
+.dataTables_scrollBody {
+  /* transform:rotateX(180deg);*/
+}
+.dataTables_scrollBody table {
+    /*transform:rotateX(180deg);*/
+}
+th {
+    background-color: #EBEBEB !important;
+}
+.dt-body-wrap {
+   word-wrap:break-word;
+}
+/*#dt-pos > tbody > tr > td{
+    line-height: 2 !important;
+}
+#dt-trans > tbody > tr > td{
+    line-height: 2 !important;
+}*/
+#dt-positions tbody > tr {
+    cursor: pointer;
+}
+.large-table-container-1 {
+  overflow-x: scroll;
+  overflow-y: auto;
+}
+#calendar th {
+    /*background-color: #0088cc !important;*/
+    color:black !important;
+}
+.fc-button-primary {
+    background-color: #0088cc !important;
+}
+.fc .fc-button-primary {
+   /* background-color: #0088cc !important;*/
+    border-color: #0088cc !important;
+}
+/*a.fc-event {
+    background-color: brown !important;
+}*/
+/*a.fc-event[style*="background-color: rgb(0, 204, 0)"] > * {
+  background: aquamarine !important;
+}*/
+
+/*.fc-daygrid-event-dot[style*="border-color: rgb(255, 0, 255)"] > * {
+    border-color: rgb(0, 0, 0) !important;
+}*/
+/*.fc-daygrid-event-dot[style="border-color: rgb(0, 204, 0);"] > * {
+     border-color: rgb(0, 100, 240) !important;
+}*/
+.fc-event-title {
+   font-weight: bold !important; 
+   color: #555;
+}
+.table-kpi thead th{
+   vertical-align:top !important;
+}
+.table-fio thead th{
+   vertical-align:top !important;
+}
+.darkness {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.6);
+    z-index: 100001;
+}
+.layer {
+	display: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+    height: 100%;
+    z-index: 100002;
+}
+
+@media only screen and (min-width: 900px) {
+    .layer {
+        background-image: url(/assets/images/loading-gif2.gif);
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+}
+@media only screen and (min-width: 320px) and (max-width:899px) {
+    .layer {
+        background-image: url(/assets/images/loading-gif3.gif);
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+}
+
+#processes {
+    width: 1000px;
+    height: 600px;
+    /*border: 1px solid #ccc;*/
+    margin: 2px;
+}

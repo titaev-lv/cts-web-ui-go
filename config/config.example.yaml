@@ -1,0 +1,71 @@
+# CT-System Configuration Example
+# Copy this file to config.yaml and update with your values
+
+# Server configuration
+server:
+  port: 8443
+  mode: release  # debug, release, test
+  host: "0.0.0.0"
+  read_timeout: 60s
+  write_timeout: 60s
+
+# Database configuration
+database:
+  engine: "mysql"  # mysql, oracle (future)
+  mysql:
+    host: "localhost"
+    port: 3306
+    user: "ct_web"
+    password: "test_password"
+    database: "ct_system"
+    charset: "utf8mb4"
+    parse_time: true
+    max_connections: 25
+    max_idle_connections: 5
+    connection_max_lifetime: 300s  # 5 minutes
+    connection_max_idle_time: 60s  # 1 minute
+  oracle:
+    host: "localhost"
+    port: 1521
+    user: "example"
+    password: "example"
+    database: "example"
+
+# Security configuration
+security:
+  jwt_secret: "change-this-secret-key-in-production"
+  session_secret: "change-this-session-secret-in-production"
+  csrf_secret: "change-this-csrf-secret-in-production"
+  bcrypt_cost: 10
+  session_cookie_name: "ct_session"
+  session_cookie_secure: false  # Set to true in production with HTTPS
+  session_cookie_http_only: true
+  session_cookie_same_site: "Lax"  # Strict, Lax, None
+  session_max_age: 86400  # 24 hours in seconds
+  remember_me_days: 7  # Days for "Remember Me" cookie
+  rate_limit_login: 5  # Login attempts per minute
+  rate_limit_api: 100  # API requests per second
+
+# Logging configuration
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json, text
+  output: "stdout"  # stdout, file, both
+  file: "/var/log/ct-system.log"
+  max_size: 100  # MB
+  max_backups: 5
+  max_age: 30  # days
+  compress: true
+
+# Daemon configuration
+daemon:
+  path: "/home/ctdaemon/ctdaemon"
+  check_interval: 5s  # How often to check daemon status
+
+# Application settings
+app:
+  name: "CT-System"
+  version: "1.0.0"
+  timezone: "UTC"
+  default_language: "en"
+

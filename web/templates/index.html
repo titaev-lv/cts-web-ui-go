@@ -1,0 +1,290 @@
+{{define "home"}}
+<!doctype html>
+<html class="fixed">
+    <head>
+        <!-- Basic -->
+        <meta charset="UTF-8">
+        <title>{{.Title}} - CT-System</title>
+        <meta name="keywords" content="" />
+        <meta name="description" content="">
+
+        <!-- Mobile Metas -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+        <!-- Web Fonts  -->
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
+
+        <!-- Vendor CSS -->
+        <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.css" />
+        <link rel="stylesheet" href="/assets/vendor/font-awesome/css/font-awesome.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.css" />
+
+        <!-- Specific Page Vendor CSS -->
+        <link rel="stylesheet" href="/assets/vendor/jquery-ui/css/ui-lightness/jquery-ui-1.10.4.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/select2/select2.css" />
+        <link rel="stylesheet" href="/assets/vendor/jquery-datatables-bs3/assets/css/datatables.css" />
+
+        <!-- Theme CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/theme.css" />
+        <!-- Skin CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/skins/default.css" />
+        <!-- Theme Custom CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/theme-custom.css">
+
+        <link rel="stylesheet" href="/assets/vendor/magnific-popup/magnific-popup.css" />
+        <link rel="stylesheet" href="/assets/vendor/pnotify/pnotify.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.css" />
+        
+        <!-- LOCAL CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/ct.css">
+       
+        <!-- Head Libs -->
+        <script src="/assets/vendor/modernizr/modernizr.js"></script>
+        <!-- Vendor -->
+        <script src="/assets/vendor/jquery/jquery-3.7.1.js"></script>
+        <script src="/assets/vendor/bootstrap/js/bootstrap.js"></script>
+    </head>
+    <body>
+        <section class="body">
+            <!-- start: header -->
+            <header class="header">
+                <div class="logo-container">
+                    <a href="/" class="logo">
+                        <span style="color:#34495e;font-size: 200%">CT-System</span>
+                    </a>
+                    <div class="visible-xs toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html" data-fire-event="sidebar-left-opened">
+                        <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                    </div>
+                </div>
+
+                <!-- start: search & user box -->
+                <div class="header-right">
+                    <span class="separator"></span>
+                    <div id="userbox" class="userbox">
+                        <a href="#" data-toggle="dropdown">
+                            <figure class="profile-picture">
+                                <img src="/assets/images/!logged-user.jpg" alt="" class="img-circle" data-lock-picture="assets/images/!logged-user.jpg" />
+                            </figure>
+                            <div class="profile-info" data-lock-name="" data-lock-email="">
+                                <span class="name">{{.User.Name}} {{.User.LastName}}</span>
+                                <span class="role">{{.User.Email}}</span>
+                            </div>
+                        </a>
+                        <a role="menuitem" tabindex="-1" href="/auth/logout"><i class="fa fa-power-off"></i> Logoff</a>
+                    </div>
+                </div>
+                <!-- end: search & user box -->
+            </header>
+            <!-- end: header -->
+            
+            <div class="inner-wrapper">
+                <!-- start: sidebar -->
+                <aside id="sidebar-left" class="sidebar-left">
+                    <div class="sidebar-header">
+                        <div class="sidebar-title">
+                            <!--Navigation-->
+                        </div>
+                        <div class="sidebar-toggle hidden-xs" data-toggle-class="sidebar-left-collapsed" data-target="html" data-fire-event="sidebar-left-toggle">
+                            <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                        </div>
+                    </div>
+
+                    <div class="nano">
+                        <div class="nano-content">
+                            <nav id="menu" class="nav-main" role="navigation">
+                                <ul class="nav nav-main">
+                                    <li class="nav-parent">
+                                        <a>
+                                            <i class="fa fa-align-left" aria-hidden="true"></i>
+                                            <span>Market Analysis</span>
+                                        </a>
+                                        <ul class="nav nav-children">
+                                            <li>
+                                                <a href="/market_analysis/">K-Lines between Exchanges</a>
+                                            </li>
+                                            <li>
+                                                <a href="/market_analysis/direct_exs">Direct arbitration between Exchanges</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <a href="/positions_calc/">
+                                            <i class="fa fa-cubes" aria-hidden="true"></i>
+                                            <span>Trade Positions</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/exchange_accounts/">
+                                            <i class="fa fa-bank" aria-hidden="true"></i>
+                                            <span>Exchange Accounts</span>
+                                        </a>
+                                    </li>
+                                    {{if .User.IsAdmin}}
+                                    <li>
+                                        <a href="/exchange_manage/">
+                                            <i class="fa fa-cog" aria-hidden="true"></i>
+                                            <span>Exchange Manage</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/coins/">
+                                            <i class="fa fa-money" aria-hidden="true"></i>
+                                            <span>Coins</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/users/">
+                                            <i class="fa fa-user" aria-hidden="true"></i>
+                                            <span>Users</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/groups/">
+                                            <i class="fa fa-users" aria-hidden="true"></i>
+                                            <span>User's Groups</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/daemon/">
+                                            <i class="fa fa-sitemap" aria-hidden="true"></i>
+                                            <span>Daemon Manage</span>
+                                        </a>
+                                    </li>
+                                    {{end}}
+                                </ul>
+                            </nav>
+                            <hr class="separator" />
+                        </div>
+                    </div>
+                </aside>
+                <!-- end: sidebar -->
+                
+                <section role="main" class="content-body">
+                    <br><br>                           
+                    <header class="page-header">
+                        <h2>Dashboard</h2>
+
+                        <div class="right-wrapper pull-right">
+                            <ol class="breadcrumbs">
+                                <li>
+                                    <a href="/">
+                                       <span>Home</span>
+                                    </a>
+                                </li>
+                                <li><span>&nbsp;</span></li>
+                            </ol>
+
+                            <a class="sidebar-right-toggle" data-open="sidebar-right"><i class="fa fa-chevron-left"></i></a>
+                        </div>
+                    </header>
+
+                    <!-- start: page -->
+                    <section class="panel">
+                        <header class="panel-heading">
+                            <div class="panel-actions">
+                                <a href="#" class="fa fa-caret-down"></a>
+                                <a href="#" class="fa fa-times"></a>
+                            </div>
+
+                            <h2 class="panel-title">Welcome to CT-System</h2>
+                        </header>
+                        <div class="panel-body">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fa fa-info-circle"></i>
+                                <strong>Welcome, {{.User.Name}} {{.User.LastName}}!</strong>
+                                You are successfully authenticated in the system. You can start working.
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <i class="fa fa-user" aria-hidden="true"></i>
+                                                User Information
+                                            </h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <table class="table table-condensed">
+                                                <tbody>
+                                                    <tr>
+                                                        <td><strong>Login:</strong></td>
+                                                        <td>{{.User.Login}}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>Name:</strong></td>
+                                                        <td>{{.User.Name}} {{.User.LastName}}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>Email:</strong></td>
+                                                        <td>{{.User.Email}}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>Timezone:</strong></td>
+                                                        <td>{{.User.Timezone}}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>Status:</strong></td>
+                                                        <td>
+                                                            {{if .User.Active}}
+                                                                <span class="label label-success">Active</span>
+                                                            {{else}}
+                                                                <span class="label label-danger">Inactive</span>
+                                                            {{end}}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <i class="fa fa-cog" aria-hidden="true"></i>
+                                                Quick Actions
+                                            </h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <p>Quick access to system features:</p>
+                                            <ul class="list-unstyled">
+                                                <li><a href="/exchange_accounts/"><i class="fa fa-bank"></i> View Exchange Accounts</a></li>
+                                                <li><a href="/positions_calc/"><i class="fa fa-cubes"></i> View Trade Positions</a></li>
+                                                <li><a href="/market_analysis/"><i class="fa fa-align-left"></i> Market Analysis</a></li>
+                                                {{if .User.IsAdmin}}
+                                                <li><a href="/users/"><i class="fa fa-user"></i> Manage Users</a></li>
+                                                <li><a href="/groups/"><i class="fa fa-users"></i> Manage Groups</a></li>
+                                                {{end}}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <!-- end: page -->
+                </section>
+            </div>
+        </section>
+
+        <!-- Vendor -->
+        <script src="/assets/vendor/jquery-ui/jquery-ui-1.10.4.custom.min.js"></script>
+        <script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js"></script>
+        <script src="/assets/vendor/jquery-datatables/jquery.dataTables.js"></script>
+        <script src="/assets/vendor/jquery-datatables-bs3/assets/js/datatables.js"></script>
+        <script src="/assets/vendor/jquery-datatables-responsive/jquery.dataTables.responsive.js"></script>
+        <script src="/assets/vendor/magnific-popup/jquery.magnific-popup.js"></script>
+        <script src="/assets/vendor/pnotify/pnotify.custom.js"></script>
+        <script src="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.js"></script>
+        <script src="/assets/vendor/nanoscroller/jquery.nanoscroller.js"></script>
+        <script src="/assets/vendor/select2/select2.js"></script>
+
+        <!-- Plugins -->
+        <script src="/assets/javascripts/theme.js"></script>
+
+        <!-- Custom -->
+        <script src="/assets/javascripts/ct.js"></script>
+    </body>
+</html>
+{{end}}

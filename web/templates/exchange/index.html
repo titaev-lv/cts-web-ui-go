@@ -1,0 +1,411 @@
+{{define "exchange/index.html"}}
+<!doctype html>
+<html class="fixed">
+    <head>
+        <!-- Basic -->
+        <meta charset="UTF-8">
+        <title>{{.Title}} - CT-System</title>
+        <meta name="keywords" content="" />
+        <meta name="description" content="">
+
+        <!-- Mobile Metas -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+        <!-- Web Fonts  -->
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
+
+        <!-- Vendor CSS -->
+        <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.css" />
+        <link rel="stylesheet" href="/assets/vendor/font-awesome/css/font-awesome.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.css" />
+
+        <!-- Specific Page Vendor CSS -->
+        <link rel="stylesheet" href="/assets/vendor/jquery-ui/css/ui-lightness/jquery-ui-1.10.4.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/select2/select2.css" />
+        <link rel="stylesheet" href="/assets/vendor/jquery-datatables-bs3/assets/css/datatables.css" />
+
+        <!-- Theme CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/theme.css" />
+        <!-- Skin CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/skins/default.css" />
+        <!-- Theme Custom CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/theme-custom.css">
+
+        <link rel="stylesheet" href="/assets/vendor/magnific-popup/magnific-popup.css" />
+        <link rel="stylesheet" href="/assets/vendor/pnotify/pnotify.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.css" />
+
+        <!-- LOCAL CSS -->
+        <link rel="stylesheet" href="/assets/stylesheets/ct.css">
+
+        <!-- Head Libs -->
+        <script src="/assets/vendor/modernizr/modernizr.js"></script>
+        <!-- Vendor -->
+        <script src="/assets/vendor/jquery/jquery-3.7.1.js"></script>
+        <script src="/assets/vendor/bootstrap/js/bootstrap.js"></script>
+        
+        <!-- Remove sort class from checkbox column -->
+        <style>
+            #dt-exchange-manage th.no-sort {
+                cursor: default !important;
+                position: relative;
+            }
+            #dt-exchange-manage th.no-sort .DataTables_sort_icon,
+            #dt-exchange-manage th.no-sort span:not(:has(input)) {
+                display: none !important;
+            }
+            #dt-exchange-manage th.no-sort::after {
+                content: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <section class="body">
+            <!-- start: header -->
+            <header class="header">
+                <div class="logo-container">
+                    <a href="/" class="logo">
+                        <span style="color:#34495e;font-size: 200%">CT-System</span>
+                    </a>
+                    <div class="visible-xs toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html" data-fire-event="sidebar-left-opened">
+                        <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                    </div>
+                </div>
+
+                <!-- start: search & user box -->
+                <div class="header-right">
+                    <span class="separator"></span>
+                    <div id="userbox" class="userbox">
+                        <a href="#" data-toggle="dropdown">
+                            <figure class="profile-picture">
+                                <img src="/assets/images/!logged-user.jpg" alt="" class="img-circle" data-lock-picture="assets/images/!logged-user.jpg" />
+                            </figure>
+                            <div class="profile-info" data-lock-name="" data-lock-email="">
+                                <span class="name">{{.User.Name}} {{.User.LastName}}</span>
+                                <span class="role">{{.User.Email}}</span>
+                            </div>
+                        </a>
+                        <a role="menuitem" tabindex="-1" href="/auth/logout"><i class="fa fa-power-off"></i> Logoff</a>
+                    </div>
+                </div>
+                <!-- end: search & user box -->
+            </header>
+            <!-- end: header -->
+
+            <div class="inner-wrapper">
+                <!-- start: sidebar -->
+                <aside id="sidebar-left" class="sidebar-left">
+                    <div class="sidebar-header">
+                        <div class="sidebar-title">
+                            <!--Navigation-->
+                        </div>
+                        <div class="sidebar-toggle hidden-xs" data-toggle-class="sidebar-left-collapsed" data-target="html" data-fire-event="sidebar-left-toggle">
+                            <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                        </div>
+                    </div>
+
+                    <div class="nano">
+                        <div class="nano-content">
+                            <nav id="menu" class="nav-main" role="navigation">
+                                <ul class="nav nav-main">
+                                    <li class="nav-parent">
+                                        <a>
+                                            <i class="fa fa-align-left" aria-hidden="true"></i>
+                                            <span>Market Analysis</span>
+                                        </a>
+                                        <ul class="nav nav-children">
+                                            <li>
+                                                <a href="/market_analysis/">K-Lines between Exchanges</a>
+                                            </li>
+                                            <li>
+                                                <a href="/market_analysis/direct_exs">Direct arbitration between Exchanges</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <a href="/positions_calc/">
+                                            <i class="fa fa-cubes" aria-hidden="true"></i>
+                                            <span>Trade Positions</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/exchange_accounts/">
+                                            <i class="fa fa-bank" aria-hidden="true"></i>
+                                            <span>Exchange Accounts</span>
+                                        </a>
+                                    </li>
+                                    {{if .User.IsAdmin}}
+                                    <li>
+                                        <a href="/exchange_manage/">
+                                            <i class="fa fa-cog" aria-hidden="true"></i>
+                                            <span>Exchange Manage</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/coins/">
+                                            <i class="fa fa-money" aria-hidden="true"></i>
+                                            <span>Coins</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/users/">
+                                            <i class="fa fa-user" aria-hidden="true"></i>
+                                            <span>Users</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/groups/">
+                                            <i class="fa fa-users" aria-hidden="true"></i>
+                                            <span>User's Groups</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="/daemon/">
+                                            <i class="fa fa-sitemap" aria-hidden="true"></i>
+                                            <span>Daemon Manage</span>
+                                        </a>
+                                    </li>
+                                    {{end}}
+                                </ul>
+                            </nav>
+                            <hr class="separator" />
+                        </div>
+                    </div>
+                </aside>
+                <!-- end: sidebar -->
+
+                <section role="main" class="content-body">
+                    <br><br>
+                    <header class="page-header">
+                        <h2>Exchanges</h2>
+
+                        <div class="right-wrapper pull-right">
+                            <ol class="breadcrumbs">
+                                <li>
+                                    <a href="/">
+                                       <span>Exchange Manage</span>
+                                    </a>
+                                </li>
+                                <li><span>&nbsp;</span></li>
+                            </ol>
+
+                            <a class="sidebar-right-toggle" data-open="sidebar-right"><i class="fa fa-chevron-left"></i></a>
+                        </div>
+                    </header>
+
+            <section class="panel">
+                <header class="panel-heading">
+                    <div class="panel-actions">
+                        <a href="#" class="fa fa-caret-down"></a>
+                        <a href="#" class="fa fa-times"></a>
+                    </div>
+                    <h2 class="panel-title">Manage Exchanges</h2>
+                </header>
+                <div class="panel-body">
+                    <div class="mb-md">
+                        <a href="#modalExchangeCreate" class="modal-with-form btn btn-primary"><i class="fa fa-plus"></i> Add Exchange</a>
+                    </div>
+                    <table class="table table-bordered table-striped mb-none cell-border order-column" id="dt-exchange-manage">
+                        <thead>
+                        <tr>
+                            <th width="5px">
+                                <input type="checkbox" style="margin-bottom: 15px" id="checkallExchange">
+                            </th>
+                            <th style="width: 100px;">ID</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>URL</th>
+                            <th>Base URL</th>
+                            <th>WebSocket URL</th>
+                            <th>Class</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+                </section>
+            </div> <!--inner-wrapper-->
+
+            <aside id="sidebar-right" class="sidebar-right">
+                <div class="nano">
+                    <div class="nano-content">
+                        <a href="#" class="mobile-close visible-xs">
+                            Collapse <i class="fa fa-chevron-right"></i>
+                        </a>
+                        <div class="sidebar-right-wrapper">
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Modal Form Create Exchange-->
+            <div id="modalExchangeCreate" class="modal-block mfp-hide">
+                <section class="panel">
+                    <header class="panel-heading">
+                        <h2 class="panel-title">Create Exchange</h2>
+                    </header>
+                    <div class="panel-body">
+                        <form id="form-create-exchange" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Exchange <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_name" name="create_exchange_name" class="form-control" maxlength="64" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Status <span class="required">*</span></label>
+                                <div class="">
+                                    <select id="create_exchange_status" name="create_exchange_status" class="form-control" required>
+                                        <option value="Active">Active</option>
+                                        <option value="Blocked">Blocked</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">URL <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_url" name="create_exchange_url" class="form-control" maxlength="512" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Base URL <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_base_url" name="create_exchange_base_url" class="form-control" maxlength="512" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">WebSocket URL</label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_websocket_url" name="create_exchange_websocket_url" class="form-control" maxlength="512" placeholder="" />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Factory Class <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_class" name="create_exchange_class" class="form-control" maxlength="64" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-12" style="margin: 0px">
+                                <label class="col-sm-12 control-label force-align-left">Description</label>
+                                <div class="">
+                                    <textarea rows="4" id="create_exchange_description" name="create_exchange_description" class="form-control" placeholder=""></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <footer class="panel-footer">
+                        <div class="row">
+                            <div class="col-md-12 text-right">
+                                <button class="btn btn-primary" id="btn-save-exchange">Submit</button>
+                                <button class="btn btn-default modal-dismiss">Cancel</button>
+                            </div>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+
+            <!-- Modal Form Edit Exchange-->
+            <div id="modalExchangeEdit" class="modal-block mfp-hide">
+                <section class="panel">
+                    <header class="panel-heading">
+                        <h2 class="panel-title">Edit Exchange</h2>
+                    </header>
+                    <div class="panel-body">
+                        <form id="form-edit-exchange" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <input type="hidden" id="edit_exchange_id" name="edit_exchange_id" value="">
+                                <label class="control-label force-align-left">Exchange <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="edit_exchange_name" name="edit_exchange_name" class="form-control" maxlength="64" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Status <span class="required">*</span></label>
+                                <div class="">
+                                    <select id="edit_exchange_status" name="edit_exchange_status" class="form-control" required>
+                                        <option value="Active">Active</option>
+                                        <option value="Blocked">Blocked</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">URL <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="edit_exchange_url" name="edit_exchange_url" class="form-control" maxlength="512" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Base URL <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="edit_exchange_base_url" name="edit_exchange_base_url" class="form-control" maxlength="512" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">WebSocket URL</label>
+                                <div class="">
+                                    <input type="text" id="edit_exchange_websocket_url" name="edit_exchange_websocket_url" class="form-control" maxlength="512" placeholder="" />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                <label class="control-label force-align-left">Factory Class <span class="required">*</span></label>
+                                <div class="">
+                                    <input type="text" id="edit_exchange_class" name="edit_exchange_class" class="form-control" maxlength="64" placeholder="" required />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-12" style="margin: 0px">
+                                <label class="col-sm-12 control-label force-align-left">Description</label>
+                                <div class="">
+                                    <textarea rows="4" id="edit_exchange_description" name="edit_exchange_description" class="form-control" placeholder=""></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <footer class="panel-footer">
+                        <div class="row">
+                            <div class="col-md-12 text-right">
+                                <button class="btn btn-primary" id="btn-update-exchange">Submit</button>
+                                <button class="btn btn-default modal-dismiss">Cancel</button>
+                            </div>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        </section>
+
+        <!-- Vendor -->
+        <script src="/assets/vendor/jquery-browser-mobile/jquery.browser.mobile.js"></script>
+        <script src="/assets/vendor/nanoscroller/nanoscroller.js"></script>
+        <script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js"></script>
+        <script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.ru.js"></script>
+        <script src="/assets/vendor/magnific-popup/magnific-popup.js"></script>
+        <script src="/assets/vendor/jquery-placeholder/jquery.placeholder.js"></script>
+
+        <!-- Specific Page Vendor -->
+        <script src="/assets/vendor/select2/select2.js"></script>
+        <script src="/assets/vendor/jquery-datatables/media/js/jquery.dataTables.js"></script>
+        <script src="/assets/vendor/jquery-datatables/extras/TableTools/js/dataTables.tableTools.min.js"></script>
+        <script src="/assets/vendor/jquery-datatables-bs3/assets/js/datatables.js"></script>
+        <script src="/assets/vendor/jquery-autosize/jquery.autosize.js"></script>
+
+        <!-- Theme Base, Components and Settings -->
+        <script src="/assets/javascripts/theme.js"></script>
+        <!-- Theme Custom -->
+        <script src="/assets/javascripts/theme.custom.js"></script>
+        <!-- Theme Initialization Files -->
+        <script src="/assets/javascripts/theme.init.js"></script>
+
+        <script src="/assets/vendor/pnotify/pnotify.custom.js"></script>
+        <script src="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.js"></script>
+
+        <!-- LOCAL JS -->
+        <script src="/assets/javascripts/ct.js"></script>
+        <script src="/assets/javascripts/exchange_manage.js"></script>
+        <div class="darkness"></div>
+        <div class="layer"></div>
+    </body>
+</html>
+{{end}}
+
+

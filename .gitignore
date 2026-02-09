@@ -20,6 +20,8 @@ go.work
 
 # Logs
 *.log
+logs/
+php/
 
 # Config files with secrets
 config/config.yaml
