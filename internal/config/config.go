@@ -92,6 +92,10 @@ type LoggingConfig struct {
 	AccessMaxSize    int    `mapstructure:"access_max_size"`    // Максимальный размер access log в МБ
 	AccessMaxBackups int    `mapstructure:"access_max_backups"` // Количество архивных access log файлов
 	AccessMaxAge     int    `mapstructure:"access_max_age"`     // Хранить access log N дней
+	AuditFile        string `mapstructure:"audit_file"`         // Путь к audit log (если пусто, создается рядом с File)
+	AuditMaxSize     int    `mapstructure:"audit_max_size"`     // Максимальный размер audit log в МБ
+	AuditMaxBackups  int    `mapstructure:"audit_max_backups"`  // Количество архивных audit log файлов
+	AuditMaxAge      int    `mapstructure:"audit_max_age"`      // Хранить audit log N дней
 }
 
 // DaemonConfig - настройки для управления внешним демоном

@@ -56,6 +56,14 @@ logging:
   max_backups: 5
   max_age: 30  # days
   compress: true
+  access_file: "/var/log/ct-system-access.log"
+  access_max_size: 50
+  access_max_backups: 10
+  access_max_age: 7
+  audit_file: "/var/log/ct-system-audit.log"
+  audit_max_size: 100
+  audit_max_backups: 5
+  audit_max_age: 30
 
 # Daemon configuration
 daemon:

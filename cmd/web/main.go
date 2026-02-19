@@ -101,6 +101,7 @@ func main() {
 	showStack := cfg.Server.Mode == "debug"
 	r.Use(middleware.RecoveryMiddlewareWithStack(showStack))
 	r.Use(middleware.RequestIDMiddleware())
+	r.Use(middleware.AuditLogMiddleware())
 	r.Use(middleware.AccessLogMiddleware())
 
 	// ============================================

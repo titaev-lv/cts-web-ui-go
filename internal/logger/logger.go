@@ -20,6 +20,7 @@ import (
 var (
 	errorLogger  *slog.Logger
 	accessLogger *slog.Logger
+	auditLogger  *slog.Logger
 	logLevel     slog.Level
 	logFiles     map[string]io.WriteCloser
 	fileMutex    sync.RWMutex
@@ -46,6 +47,11 @@ func Init() error {
 		accessPath = defaultAccessPath(errorPath)
 	}
 
+	auditPath := logCfg.AuditFile
+	if auditPath == "" {
+		auditPath = defaultAuditPath(errorPath)
+	}
+
 	errorWriter, err := buildWriter(logCfg.Output, errorPath, logCfg.MaxSize, logCfg.MaxBackups, logCfg.MaxAge, logCfg.Compress)
 	if err != nil {
 		return fmt.Errorf("init error logger: %w", err)
@@ -69,8 +75,27 @@ func Init() error {
 		return fmt.Errorf("init access logger: %w", err)
 	}
 
+	auditMaxSize := logCfg.AuditMaxSize
+	auditMaxBackups := logCfg.AuditMaxBackups
+	auditMaxAge := logCfg.AuditMaxAge
+	if auditMaxSize <= 0 {
+		auditMaxSize = 100
+	}
+	if auditMaxBackups <= 0 {
+		auditMaxBackups = 5
+	}
+	if auditMaxAge <= 0 {
+		auditMaxAge = 30
+	}
+
+	auditWriter, err := buildWriter(logCfg.Output, auditPath, auditMaxSize, auditMaxBackups, auditMaxAge, logCfg.Compress)
+	if err != nil {
+		return fmt.Errorf("init audit logger: %w", err)
+	}
+
 	errorLogger = slog.New(buildHandler(logCfg.Format, errorWriter))
 	accessLogger = slog.New(buildHandler(logCfg.Format, accessWriter))
+	auditLogger = slog.New(buildHandler(logCfg.Format, auditWriter))
 	if errorLogger != nil {
 		slog.SetDefault(errorLogger)
 	}
@@ -92,6 +117,14 @@ func Access() *slog.Logger {
 		return Get()
 	}
 	return accessLogger
+}
+
+// Audit returns the audit logger.
+func Audit() *slog.Logger {
+	if auditLogger == nil {
+		return Get()
+	}
+	return auditLogger
 }
 
 // Debug returns a log event with debug level.
@@ -326,6 +359,11 @@ func ensureLogDir(filePath string) error {
 func defaultAccessPath(errorPath string) string {
 	dir := filepath.Dir(errorPath)
 	return filepath.Join(dir, "access.log")
+}
+
+func defaultAuditPath(errorPath string) string {
+	dir := filepath.Dir(errorPath)
+	return filepath.Join(dir, "audit.log")
 }
 
 func replaceTimeAttr(_ []string, attr slog.Attr) slog.Attr {
