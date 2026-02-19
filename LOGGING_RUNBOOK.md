@@ -8,6 +8,12 @@ Operational checks for Web UI logging in Docker:
 - `access.log` / `error.log` presence and rotation
 - quick diagnostics for write-permission issues
 
+## `request_id` Policy for Audit
+
+- HTTP request-bound audit events MUST include `request_id`
+- System/background events MAY omit `request_id`
+- For non-request events use `job_id` / `task_id` / `event_id` for correlation
+
 ## Quick Validation
 
 ### 1) Service is running

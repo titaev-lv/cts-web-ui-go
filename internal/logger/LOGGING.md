@@ -12,6 +12,7 @@
 - ✅ Разные уровни логирования (Debug, Info, Warn, Error, Fatal, Panic)
 - ✅ Вывод в консоль, файл или оба места одновременно
 - ✅ Разделение на error.log и access.log
+- ✅ Отдельный audit.log для security/admin событий
 - ✅ Автоматическая ротация файлов логов
 - ✅ Сжатие старых логов (gzip)
 - ✅ Fail-fast проверка директории логов на запись
@@ -169,6 +170,23 @@ HTTP access-логи пишутся через middleware `internal/middleware/a
 - `ip`
 - `user_agent`
 - `user_id` (если пользователь авторизован)
+
+## Audit логирование
+
+Audit-логи пишутся через middleware `internal/middleware/audit_log.go` в `audit.log` и дублируются в stdout (если `output: both`).
+
+Audit покрывает Web-UI ориентированные события:
+- auth события (`/auth/login`, `/auth/logout`)
+- mutating операции (`POST/PUT/PATCH/DELETE`), кроме `ajax_get*`
+
+Стандартные поля audit-лога:
+- `event_type` (`audit`)
+- `action`
+- `resource_type`
+- `method`, `path`, `status`, `result`
+- `request_id`
+- `user_id`, `user_login` (если пользователь известен)
+- `ip`, `user_agent`, `latency_ms`
 
 ## Конфигурация
 

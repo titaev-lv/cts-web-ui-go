@@ -86,7 +86,8 @@
 - ✅ Поддержка форматов: text и json
 - ✅ Поддержка вывода: stdout, file, both
 - ✅ Ротация файлов через `lumberjack`
-- ✅ Разделение на `error.log` и `access.log`
+- ✅ Разделение на `error.log`, `access.log` и `audit.log`
+- ✅ `AuditLogMiddleware()` для security/admin событий (auth + mutating actions)
 - ✅ Проверка доступности директории логов на запись
 - ✅ Интеграция с конфигурацией
 - ✅ `request_id` middleware и сквозной проброс (`X-Request-ID`) — реализовано
@@ -94,6 +95,7 @@
 **Файлы:**
 - `internal/logger/logger.go`
 - `internal/middleware/access_log.go`
+- `internal/middleware/audit_log.go`
 - `internal/logger/LOGGING.md` - документация
 - `LOGGING_SETUP.md` - описание реализации
 
