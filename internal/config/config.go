@@ -80,14 +80,18 @@ type SecurityConfig struct {
 
 // LoggingConfig - настройки системы логирования
 type LoggingConfig struct {
-	Level      string `mapstructure:"level"`       // Уровень логирования: "debug", "info", "warn", "error"
-	Format     string `mapstructure:"format"`      // Формат логов: "json" (структурированный) или "text" (читаемый)
-	Output     string `mapstructure:"output"`      // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
-	File       string `mapstructure:"file"`        // Путь к файлу логов (если output = "file" или "both")
-	MaxSize    int    `mapstructure:"max_size"`    // Максимальный размер файла лога в МБ (100 МБ)
-	MaxBackups int    `mapstructure:"max_backups"` // Количество архивных файлов логов (5 файлов)
-	MaxAge     int    `mapstructure:"max_age"`     // Хранить логи N дней (30 дней)
-	Compress   bool   `mapstructure:"compress"`    // Сжимать старые логи (gzip)
+	Level            string `mapstructure:"level"`              // Уровень логирования: "debug", "info", "warn", "error"
+	Format           string `mapstructure:"format"`             // Формат логов: "json" (структурированный) или "text" (читаемый)
+	Output           string `mapstructure:"output"`             // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
+	File             string `mapstructure:"file"`               // Путь к файлу логов (если output = "file" или "both")
+	MaxSize          int    `mapstructure:"max_size"`           // Максимальный размер файла лога в МБ (100 МБ)
+	MaxBackups       int    `mapstructure:"max_backups"`        // Количество архивных файлов логов (5 файлов)
+	MaxAge           int    `mapstructure:"max_age"`            // Хранить логи N дней (30 дней)
+	Compress         bool   `mapstructure:"compress"`           // Сжимать старые логи (gzip)
+	AccessFile       string `mapstructure:"access_file"`        // Путь к access log (если пусто, создается рядом с File)
+	AccessMaxSize    int    `mapstructure:"access_max_size"`    // Максимальный размер access log в МБ
+	AccessMaxBackups int    `mapstructure:"access_max_backups"` // Количество архивных access log файлов
+	AccessMaxAge     int    `mapstructure:"access_max_age"`     // Хранить access log N дней
 }
 
 // DaemonConfig - настройки для управления внешним демоном

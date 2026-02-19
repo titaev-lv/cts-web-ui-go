@@ -13,6 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const contextKeyRequestID = "request_id"
+
 // AppError - структура для представления ошибки приложения.
 //
 // Содержит всю информацию об ошибке:
@@ -21,10 +23,10 @@ import (
 //   - InternalError: внутренняя ошибка (для логирования, не показывается пользователю)
 //   - Details: дополнительные детали (опционально)
 type AppError struct {
-	Code         int                    `json:"code"`          // HTTP статус код (400, 404, 500 и т.д.)
-	Message      string                 `json:"message"`       // Сообщение для пользователя
-	InternalError error                 `json:"-"`            // Внутренняя ошибка (не отправляется клиенту)
-	Details      map[string]interface{} `json:"details,omitempty"` // Дополнительные детали (опционально)
+	Code          int                    `json:"code"`              // HTTP статус код (400, 404, 500 и т.д.)
+	Message       string                 `json:"message"`           // Сообщение для пользователя
+	InternalError error                  `json:"-"`                 // Внутренняя ошибка (не отправляется клиенту)
+	Details       map[string]interface{} `json:"details,omitempty"` // Дополнительные детали (опционально)
 }
 
 // Error реализует интерфейс error.
@@ -248,10 +250,10 @@ func DatabaseError(resource string, id interface{}, err error) *AppError {
 // HandleError обрабатывает ошибку и отправляет ответ клиенту.
 //
 // Что делает:
-//   1. Логирует ошибку (если это внутренняя ошибка)
-//   2. Формирует JSON ответ с ошибкой
-//   3. Устанавливает правильный HTTP статус код
-//   4. Отправляет ответ клиенту
+//  1. Логирует ошибку (если это внутренняя ошибка)
+//  2. Формирует JSON ответ с ошибкой
+//  3. Устанавливает правильный HTTP статус код
+//  4. Отправляет ответ клиенту
 //
 // Параметры:
 //   - c: контекст Gin
@@ -288,29 +290,37 @@ func HandleError(c *gin.Context, err error) {
 //
 // Внутренняя функция, вызывается из HandleError.
 func handleAppError(c *gin.Context, err *AppError) {
+	requestID := requestIDFromContext(c)
+
 	// Логируем ошибку
 	// Для внутренних ошибок логируем с деталями
 	// Для пользовательских ошибок (400, 404) логируем на уровне Warn
 	if err.Code >= 500 {
 		// Внутренняя ошибка сервера - логируем с полными деталями
-		logger.Error().
+		event := logger.Error().
 			Err(err.InternalError).
 			Int("status_code", err.Code).
 			Str("message", err.Message).
 			Interface("details", err.Details).
 			Str("path", c.Request.URL.Path).
-			Str("method", c.Request.Method).
-			Msg("Internal server error")
+			Str("method", c.Request.Method)
+		if requestID != "" {
+			event.Str("request_id", requestID)
+		}
+		event.Msg("Internal server error")
 	} else if err.Code >= 400 {
 		// Пользовательская ошибка (400, 401, 403, 404) - логируем на уровне Warn
-		logger.Warn().
+		event := logger.Warn().
 			Int("status_code", err.Code).
 			Str("message", err.Message).
 			Interface("details", err.Details).
 			Str("path", c.Request.URL.Path).
 			Str("method", c.Request.Method).
-			Str("client_ip", c.ClientIP()).
-			Msg("Client error")
+			Str("client_ip", c.ClientIP())
+		if requestID != "" {
+			event.Str("request_id", requestID)
+		}
+		event.Msg("Client error")
 	}
 
 	// Формируем ответ в формате, совместимом с PHP кодом
@@ -328,6 +338,18 @@ func handleAppError(c *gin.Context, err *AppError) {
 	// Отправляем ответ с правильным статус кодом
 	c.JSON(err.Code, response)
 	c.Abort() // Прерываем выполнение цепочки middleware
+}
+
+func requestIDFromContext(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	if value, ok := c.Get(contextKeyRequestID); ok {
+		if requestID, ok := value.(string); ok {
+			return requestID
+		}
+	}
+	return ""
 }
 
 // HandleSuccess отправляет успешный ответ в формате, совместимом с PHP.
@@ -416,4 +438,3 @@ func HandleDatabaseError(c *gin.Context, resource string, id interface{}, err er
 	appErr := DatabaseError(resource, id, err)
 	handleAppError(c, appErr)
 }
-

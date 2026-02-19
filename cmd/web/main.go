@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"ctweb/internal/config"      // Пакет для работы с конфигурацией
 	"ctweb/internal/controllers" // Контроллеры (обработчики HTTP запросов)
 	"ctweb/internal/db"          // Подключение к базе данных
@@ -13,6 +14,9 @@ import (
 	"html/template"              // HTML шаблоны
 	"net/http"                   // HTTP клиент и сервер
 	"os"                         // Работа с операционной системой
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin" // Веб-фреймворк Gin
 )
@@ -43,7 +47,11 @@ func main() {
 	// ============================================
 	// Инициализируем логгер на основе конфигурации
 	// После этого можно использовать logger.Info(), logger.Error() и т.д.
-	logger.Init()
+	if err := logger.Init(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Close()
 	logger.Info().
 		Str("app", cfg.App.Name).
 		Str("version", cfg.App.Version).
@@ -92,6 +100,8 @@ func main() {
 	// Используем версию с опцией показа stack trace в режиме разработки
 	showStack := cfg.Server.Mode == "debug"
 	r.Use(middleware.RecoveryMiddlewareWithStack(showStack))
+	r.Use(middleware.RequestIDMiddleware())
+	r.Use(middleware.AccessLogMiddleware())
 
 	// ============================================
 	// ШАГ 6: Регистрация Security Middleware
@@ -259,12 +269,34 @@ func main() {
 
 	// Запускаем сервер и начинаем обрабатывать HTTP запросы
 	// r.Run() блокирует выполнение программы - сервер работает до остановки
-	if err := r.Run(addr); err != nil {
-		// Если сервер не смог запуститься (например, порт занят), логируем ошибку и завершаем
-		logger.Fatal().
-			Err(err).
-			Str("address", addr).
-			Msg("Failed to start HTTP server")
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal().
+				Err(err).
+				Str("address", addr).
+				Msg("Failed to start HTTP server")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info().Msg("Shutdown signal received")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error().Err(err).Msg("HTTP server graceful shutdown failed")
+	} else {
+		logger.Info().Msg("HTTP server stopped gracefully")
 	}
 
 	// Сюда программа не дойдёт, пока сервер работает

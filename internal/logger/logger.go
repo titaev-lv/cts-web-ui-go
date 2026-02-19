@@ -1,339 +1,368 @@
-// Package logger предоставляет систему структурированного логирования на основе zerolog.
-// Поддерживает разные уровни логирования, форматы вывода (text/json) и ротацию файлов.
 package logger
 
 import (
-	"ctweb/internal/config"
+	"context"
+	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/natefinch/lumberjack" // Ротация логов (автоматическое создание архивов)
-	"github.com/rs/zerolog"            // Структурированное логирование
+	"ctweb/internal/config"
+
+	"github.com/natefinch/lumberjack"
 )
 
 var (
-	// globalLogger - глобальный экземпляр логгера
-	// После вызова Init() доступен через Get()
-	globalLogger zerolog.Logger
+	errorLogger  *slog.Logger
+	accessLogger *slog.Logger
+	logLevel     slog.Level
+	logFiles     map[string]io.WriteCloser
+	fileMutex    sync.RWMutex
 )
 
-// Init инициализирует систему логирования на основе конфигурации.
-//
-// Что делает:
-//   1. Определяет уровень логирования из конфигурации
-//   2. Настраивает формат вывода (text или json)
-//   3. Настраивает куда писать логи (stdout, file или both)
-//   4. Настраивает ротацию файлов (если используется файл)
-//   5. Создаёт глобальный логгер
-//
-// ВАЖНО: вызывать ОДИН раз при старте приложения, обычно в main.go после config.Load()
-//
-// Пример использования:
-//
-//	config.Load("")
-//	logger.Init()
-//	logger.Info().Msg("Application started")
-func Init() {
+func init() {
+	logFiles = make(map[string]io.WriteCloser)
+}
+
+// Init initializes slog-based logging with error and access streams.
+func Init() error {
 	cfg := config.Get()
 	logCfg := cfg.Logging
 
-	// ============================================
-	// ШАГ 1: Определяем уровень логирования
-	// ============================================
-	// Уровни логирования (от меньшего к большему):
-	//   - Trace: очень детальная информация (обычно не используется)
-	//   - Debug: отладочная информация (для разработки)
-	//   - Info: общая информация о работе приложения
-	//   - Warn: предупреждения (что-то не так, но не критично)
-	//   - Error: ошибки (что-то пошло не так)
-	//   - Fatal: критическая ошибка (приложение завершится)
-	//   - Panic: паника (приложение завершится с паникой)
-	var level zerolog.Level
-	switch strings.ToLower(logCfg.Level) {
-	case "trace":
-		level = zerolog.TraceLevel
-	case "debug":
-		level = zerolog.DebugLevel
-	case "info":
-		level = zerolog.InfoLevel
-	case "warn", "warning":
-		level = zerolog.WarnLevel
-	case "error":
-		level = zerolog.ErrorLevel
-	case "fatal":
-		level = zerolog.FatalLevel
-	case "panic":
-		level = zerolog.PanicLevel
-	default:
-		// Если уровень не указан или неизвестен, используем Info
-		level = zerolog.InfoLevel
+	logLevel = parseLevel(logCfg.Level)
+
+	errorPath := logCfg.File
+	if errorPath == "" {
+		errorPath = "./logs/ct-system.log"
 	}
 
-	// ============================================
-	// ШАГ 2: Настраиваем вывод логов
-	// ============================================
-	// Можем писать в несколько мест одновременно (multi-writer)
+	accessPath := logCfg.AccessFile
+	if accessPath == "" {
+		accessPath = defaultAccessPath(errorPath)
+	}
+
+	errorWriter, err := buildWriter(logCfg.Output, errorPath, logCfg.MaxSize, logCfg.MaxBackups, logCfg.MaxAge, logCfg.Compress)
+	if err != nil {
+		return fmt.Errorf("init error logger: %w", err)
+	}
+
+	accessMaxSize := logCfg.AccessMaxSize
+	accessMaxBackups := logCfg.AccessMaxBackups
+	accessMaxAge := logCfg.AccessMaxAge
+	if accessMaxSize <= 0 {
+		accessMaxSize = 50
+	}
+	if accessMaxBackups <= 0 {
+		accessMaxBackups = 10
+	}
+	if accessMaxAge <= 0 {
+		accessMaxAge = 7
+	}
+
+	accessWriter, err := buildWriter(logCfg.Output, accessPath, accessMaxSize, accessMaxBackups, accessMaxAge, logCfg.Compress)
+	if err != nil {
+		return fmt.Errorf("init access logger: %w", err)
+	}
+
+	errorLogger = slog.New(buildHandler(logCfg.Format, errorWriter))
+	accessLogger = slog.New(buildHandler(logCfg.Format, accessWriter))
+	if errorLogger != nil {
+		slog.SetDefault(errorLogger)
+	}
+
+	return nil
+}
+
+// Get returns the main error logger.
+func Get() *slog.Logger {
+	if errorLogger == nil {
+		return slog.New(buildHandler("json", os.Stdout))
+	}
+	return errorLogger
+}
+
+// Access returns the access logger.
+func Access() *slog.Logger {
+	if accessLogger == nil {
+		return Get()
+	}
+	return accessLogger
+}
+
+// Debug returns a log event with debug level.
+func Debug() *Event { return newEvent(Get(), slog.LevelDebug) }
+
+// Info returns a log event with info level.
+func Info() *Event { return newEvent(Get(), slog.LevelInfo) }
+
+// Warn returns a log event with warn level.
+func Warn() *Event { return newEvent(Get(), slog.LevelWarn) }
+
+// Error returns a log event with error level.
+func Error() *Event { return newEvent(Get(), slog.LevelError) }
+
+// Fatal logs a message and exits with code 1.
+func Fatal() *Event { return newEvent(Get(), slog.LevelError).withExit() }
+
+// Panic logs a message and panics.
+func Panic() *Event { return newEvent(Get(), slog.LevelError).withPanic() }
+
+// Close closes open log files.
+func Close() error {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
+
+	var lastErr error
+	for name, f := range logFiles {
+		if err := f.Close(); err != nil {
+			lastErr = err
+		}
+		delete(logFiles, name)
+	}
+	return lastErr
+}
+
+type Event struct {
+	logger     *slog.Logger
+	level      slog.Level
+	attrs      []slog.Attr
+	exitAfter  bool
+	panicAfter bool
+}
+
+func newEvent(logger *slog.Logger, level slog.Level) *Event {
+	if logger == nil {
+		logger = slog.New(buildHandler("json", os.Stdout))
+	}
+	return &Event{logger: logger, level: level}
+}
+
+func (e *Event) withExit() *Event {
+	e.exitAfter = true
+	return e
+}
+
+func (e *Event) withPanic() *Event {
+	e.panicAfter = true
+	return e
+}
+
+func (e *Event) Str(key, value string) *Event {
+	e.attrs = append(e.attrs, slog.String(key, value))
+	return e
+}
+
+func (e *Event) Int(key string, value int) *Event {
+	e.attrs = append(e.attrs, slog.Int(key, value))
+	return e
+}
+
+func (e *Event) Int64(key string, value int64) *Event {
+	e.attrs = append(e.attrs, slog.Int64(key, value))
+	return e
+}
+
+func (e *Event) Uint(key string, value uint) *Event {
+	e.attrs = append(e.attrs, slog.Uint64(key, uint64(value)))
+	return e
+}
+
+func (e *Event) Uint64(key string, value uint64) *Event {
+	e.attrs = append(e.attrs, slog.Uint64(key, value))
+	return e
+}
+
+func (e *Event) Float64(key string, value float64) *Event {
+	e.attrs = append(e.attrs, slog.Float64(key, value))
+	return e
+}
+
+func (e *Event) Bool(key string, value bool) *Event {
+	e.attrs = append(e.attrs, slog.Bool(key, value))
+	return e
+}
+
+func (e *Event) Dur(key string, value time.Duration) *Event {
+	e.attrs = append(e.attrs, slog.Duration(key, value))
+	return e
+}
+
+func (e *Event) Time(key string, value time.Time) *Event {
+	e.attrs = append(e.attrs, slog.Time(key, value))
+	return e
+}
+
+func (e *Event) Interface(key string, value any) *Event {
+	e.attrs = append(e.attrs, slog.Any(key, value))
+	return e
+}
+
+func (e *Event) Err(err error) *Event {
+	e.attrs = append(e.attrs, slog.Any("error", err))
+	return e
+}
+
+func (e *Event) Msg(msg string) {
+	if !hasAttrKey(e.attrs, "module") {
+		e.attrs = append(e.attrs, slog.String("module", inferModule()))
+	}
+	e.logger.Log(context.Background(), e.level, msg, attrsToArgs(e.attrs)...)
+	if e.exitAfter {
+		os.Exit(1)
+	}
+	if e.panicAfter {
+		panic(msg)
+	}
+}
+
+func attrsToArgs(attrs []slog.Attr) []any {
+	args := make([]any, 0, len(attrs)*2)
+	for _, attr := range attrs {
+		args = append(args, attr.Key, attr.Value.Any())
+	}
+	return args
+}
+
+func hasAttrKey(attrs []slog.Attr, key string) bool {
+	for _, attr := range attrs {
+		if attr.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+func buildHandler(format string, writer io.Writer) slog.Handler {
+	opts := &slog.HandlerOptions{
+		Level:       logLevel,
+		ReplaceAttr: replaceTimeAttr,
+	}
+
+	switch strings.ToLower(format) {
+	case "text":
+		return slog.NewTextHandler(writer, opts)
+	default:
+		return slog.NewJSONHandler(writer, opts)
+	}
+}
+
+func parseLevel(level string) slog.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+func buildWriter(output string, filePath string, maxSize int, maxBackups int, maxAge int, compress bool) (io.Writer, error) {
 	var writers []io.Writer
 
-	// Проверяем, нужно ли писать в консоль (stdout)
-	if logCfg.Output == "stdout" || logCfg.Output == "both" {
-		// Настраиваем формат вывода для консоли
-		var consoleWriter io.Writer
-		if logCfg.Format == "json" {
-			// JSON формат - структурированный, удобен для парсинга
-			consoleWriter = os.Stdout
-		} else {
-			// Text формат - читаемый человеком, с цветами
-			consoleWriter = zerolog.ConsoleWriter{
-				Out:        os.Stdout,
-				TimeFormat: time.RFC3339, // Формат времени: 2006-01-02T15:04:05Z07:00
-				NoColor:    false,        // Использовать цвета в консоли
-			}
-		}
-		writers = append(writers, consoleWriter)
+	switch strings.ToLower(output) {
+	case "stdout", "both":
+		writers = append(writers, os.Stdout)
 	}
 
-	// Проверяем, нужно ли писать в файл
-	if logCfg.Output == "file" || logCfg.Output == "both" {
-		// Создаём директорию для логов, если её нет
-		logDir := filepath.Dir(logCfg.File)
-		if logDir != "." && logDir != "" {
-			if err := os.MkdirAll(logDir, 0755); err != nil {
-				// Если не удалось создать директорию, пишем только в stdout
-				writers = append(writers, os.Stderr)
-				// Логируем ошибку через временный логгер
-				tempLogger := zerolog.New(os.Stderr).With().Timestamp().Logger()
-				tempLogger.Error().
-					Err(err).
-					Str("log_file", logCfg.File).
-					Msg("Failed to create log directory, using stderr")
-			} else {
-				// Настраиваем ротацию файлов через lumberjack
-				fileWriter := &lumberjack.Logger{
-					Filename:   logCfg.File,      // Путь к файлу логов
-					MaxSize:    logCfg.MaxSize,   // Максимальный размер файла в МБ
-					MaxBackups: logCfg.MaxBackups, // Количество архивных файлов
-					MaxAge:     logCfg.MaxAge,    // Хранить логи N дней
-					Compress:   logCfg.Compress,  // Сжимать старые логи (gzip)
-					LocalTime:  true,              // Использовать локальное время
-				}
-
-				// Если формат JSON, пишем напрямую в файл
-				// Если формат text, используем ConsoleWriter для читаемого формата
-				if logCfg.Format == "json" {
-					writers = append(writers, fileWriter)
-				} else {
-					// Text формат в файле (без цветов)
-					fileConsoleWriter := zerolog.ConsoleWriter{
-						Out:        fileWriter,
-						TimeFormat: time.RFC3339,
-						NoColor:    true, // В файле цвета не нужны
-					}
-					writers = append(writers, fileConsoleWriter)
-				}
-			}
+	if strings.ToLower(output) == "file" || strings.ToLower(output) == "both" {
+		if filePath == "" {
+			return nil, fmt.Errorf("log file path is empty")
 		}
+		if err := ensureLogDir(filePath); err != nil {
+			return nil, err
+		}
+
+		fileWriter := &lumberjack.Logger{
+			Filename:   filePath,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			MaxAge:     maxAge,
+			Compress:   compress,
+			LocalTime:  true,
+		}
+		fileMutex.Lock()
+		logFiles[filePath] = fileWriter
+		fileMutex.Unlock()
+		writers = append(writers, fileWriter)
 	}
 
-	// Если ни один writer не настроен, используем stderr по умолчанию
 	if len(writers) == 0 {
 		writers = append(writers, os.Stderr)
 	}
 
-	// Создаём multi-writer, который пишет во все настроенные места
-	multiWriter := io.MultiWriter(writers...)
-
-	// ============================================
-	// ШАГ 3: Создаём глобальный логгер
-	// ============================================
-	// Настраиваем глобальный логгер с:
-	//   - Уровнем логирования
-	//   - Multi-writer для вывода
-	//   - Временной зоной UTC
-	//   - Временем в формате RFC3339
-	globalLogger = zerolog.New(multiWriter).
-		Level(level).    // Устанавливаем уровень
-		With().          // Добавляем общие поля ко всем логам
-		Timestamp().     // Добавляем время в каждый лог
-		Caller().        // Добавляем информацию о месте вызова (файл:строка)
-		Logger()         // Создаём финальный логгер
-
-	// Устанавливаем глобальный уровень для zerolog
-	zerolog.SetGlobalLevel(level)
-
-	// Устанавливаем временную зону
-	zerolog.TimeFieldFormat = time.RFC3339
+	return io.MultiWriter(writers...), nil
 }
 
-// Get возвращает глобальный экземпляр логгера.
-//
-// ВАЖНО: перед вызовом Get() необходимо вызвать Init(),
-// иначе будет использован логгер по умолчанию (stderr, Info level).
-//
-// Возвращает:
-//   - zerolog.Logger: глобальный логгер
-//
-// Пример использования:
-//
-//	logger := logger.Get()
-//	logger.Info().Msg("Application started")
-//	logger.Error().Err(err).Msg("Failed to connect")
-func Get() zerolog.Logger {
-	// Если Init() не был вызван, возвращаем логгер по умолчанию
-	// Проверяем, был ли Init() вызван (если уровень Disabled, значит нет)
-	if globalLogger.GetLevel() == zerolog.Disabled {
-		// Создаём простой логгер в консоль для случаев, когда Init() не вызван
-		return zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).
-			With().
-			Timestamp().
-			Logger()
+func ensureLogDir(filePath string) error {
+	dir := filepath.Dir(filePath)
+	if dir == "." || dir == "" {
+		return nil
 	}
-	return globalLogger
-}
-
-// ============================================
-// УДОБНЫЕ ФУНКЦИИ ДЛЯ БЫСТРОГО ЛОГИРОВАНИЯ
-// ============================================
-// Эти функции позволяют быстро логировать без получения логгера через Get()
-
-// Debug логирует сообщение на уровне Debug.
-// Используется для отладочной информации, которая нужна только при разработке.
-//
-// Пример:
-//
-//	logger.Debug().Str("user_id", "123").Msg("User logged in")
-func Debug() *zerolog.Event {
-	log := Get()
-	return log.Debug()
-}
-
-// Info логирует сообщение на уровне Info.
-// Используется для общей информации о работе приложения.
-//
-// Пример:
-//
-//	logger.Info().Str("action", "user_created").Msg("New user created")
-func Info() *zerolog.Event {
-	log := Get()
-	return log.Info()
-}
-
-// Warn логирует сообщение на уровне Warn.
-// Используется для предупреждений - что-то не так, но не критично.
-//
-// Пример:
-//
-//	logger.Warn().Str("reason", "slow_query").Msg("Database query took too long")
-func Warn() *zerolog.Event {
-	log := Get()
-	return log.Warn()
-}
-
-// Error логирует сообщение на уровне Error.
-// Используется для ошибок - что-то пошло не так.
-//
-// Пример:
-//
-//	logger.Error().Err(err).Str("operation", "create_user").Msg("Failed to create user")
-func Error() *zerolog.Event {
-	log := Get()
-	return log.Error()
-}
-
-// Fatal логирует сообщение на уровне Fatal и завершает программу (os.Exit(1)).
-// Используется только для критических ошибок, после которых приложение не может работать.
-//
-// ВАЖНО: после вызова Fatal() программа завершится!
-//
-// Пример:
-//
-//	logger.Fatal().Err(err).Msg("Failed to connect to database")
-func Fatal() *zerolog.Event {
-	log := Get()
-	return log.Fatal()
-}
-
-// Panic логирует сообщение на уровне Panic и вызывает панику.
-// Используется только в крайних случаях, когда нужно остановить выполнение.
-//
-// ВАЖНО: после вызова Panic() программа вызовет panic()!
-//
-// Пример:
-//
-//	logger.Panic().Err(err).Msg("Critical system error")
-func Panic() *zerolog.Event {
-	log := Get()
-	return log.Panic()
-}
-
-// ============================================
-// СПЕЦИАЛЬНЫЕ ФУНКЦИИ ДЛЯ РАЗНЫХ СЛУЧАЕВ
-// ============================================
-
-// WithContext создаёт новый логгер с дополнительными полями.
-// Эти поля будут добавлены ко всем последующим логам.
-//
-// Полезно для добавления контекста к логам (например, user_id, request_id).
-//
-// Пример:
-//
-//	userLogger := logger.WithContext().Str("user_id", "123").Logger()
-//	userLogger.Info().Msg("User action") // В логе будет поле user_id=123
-func WithContext() zerolog.Context {
-	log := Get()
-	return log.With()
-}
-
-// LogRequest логирует HTTP запрос.
-// Удобная функция для логирования входящих HTTP запросов.
-//
-// Параметры:
-//   - method: HTTP метод (GET, POST, etc.)
-//   - path: путь запроса
-//   - statusCode: HTTP статус код ответа
-//   - duration: время выполнения запроса
-//   - clientIP: IP адрес клиента
-//
-// Пример:
-//
-//	logger.LogRequest("POST", "/api/users", 200, time.Since(start), "192.168.1.1")
-func LogRequest(method, path string, statusCode int, duration time.Duration, clientIP string) {
-	log := Get()
-	log.Info().
-		Str("method", method).
-		Str("path", path).
-		Int("status", statusCode).
-		Dur("duration", duration).
-		Str("client_ip", clientIP).
-		Msg("HTTP request")
-}
-
-// LogDatabaseQuery логирует SQL запрос к базе данных.
-// Полезно для отладки и мониторинга медленных запросов.
-//
-// Параметры:
-//   - query: SQL запрос
-//   - duration: время выполнения запроса
-//   - err: ошибка (если была)
-//
-// Пример:
-//
-//	start := time.Now()
-//	result, err := db.Exec("SELECT * FROM users")
-//	logger.LogDatabaseQuery("SELECT * FROM users", time.Since(start), err)
-func LogDatabaseQuery(query string, duration time.Duration, err error) {
-	log := Get()
-	event := log.Debug().
-		Str("query", query).
-		Dur("duration", duration)
-
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create log dir %s: %w", dir, err)
+	}
+	testPath := filepath.Join(dir, ".write-test")
+	f, err := os.OpenFile(testPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		event.Err(err).Msg("Database query failed")
-	} else {
-		event.Msg("Database query")
+		return fmt.Errorf("log dir %s is not writable: %w", dir, err)
 	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close write test for %s: %w", dir, err)
+	}
+	_ = os.Remove(testPath)
+	return nil
 }
 
+func defaultAccessPath(errorPath string) string {
+	dir := filepath.Dir(errorPath)
+	return filepath.Join(dir, "access.log")
+}
+
+func replaceTimeAttr(_ []string, attr slog.Attr) slog.Attr {
+	if attr.Key != slog.TimeKey {
+		return attr
+	}
+	if t, ok := attr.Value.Any().(time.Time); ok {
+		attr.Value = slog.StringValue(t.UTC().Format("2006-01-02T15:04:05.000000Z"))
+	}
+	return attr
+}
+
+func inferModule() string {
+	for skip := 2; skip <= 10; skip++ {
+		_, file, _, ok := runtime.Caller(skip)
+		if !ok {
+			continue
+		}
+		normalized := filepath.ToSlash(file)
+		if strings.Contains(normalized, "/internal/logger/") {
+			continue
+		}
+		if idx := strings.Index(normalized, "/internal/"); idx >= 0 {
+			rest := normalized[idx+len("/internal/"):]
+			parts := strings.Split(rest, "/")
+			if len(parts) > 0 && parts[0] != "" {
+				return parts[0]
+			}
+		}
+		if idx := strings.Index(normalized, "/cmd/"); idx >= 0 {
+			rest := normalized[idx+len("/cmd/"):]
+			parts := strings.Split(rest, "/")
+			if len(parts) > 0 && parts[0] != "" {
+				return parts[0]
+			}
+		}
+	}
+
+	return "app"
+}

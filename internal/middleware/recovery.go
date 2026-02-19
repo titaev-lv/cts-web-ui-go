@@ -15,18 +15,20 @@ import (
 // RecoveryMiddleware создаёт middleware для обработки паник.
 //
 // Что такое panic в Go:
-//   Panic - это критическая ошибка, которая останавливает выполнение программы.
-//   Без обработки panic приложение крашится.
+//
+//	Panic - это критическая ошибка, которая останавливает выполнение программы.
+//	Без обработки panic приложение крашится.
 //
 // Что делает middleware:
-//   1. Перехватывает panic с помощью recover()
-//   2. Логирует панику с полным stack trace
-//   3. Возвращает пользователю корректный ответ (500 Internal Server Error)
-//   4. Предотвращает краш приложения
+//  1. Перехватывает panic с помощью recover()
+//  2. Логирует панику с полным stack trace
+//  3. Возвращает пользователю корректный ответ (500 Internal Server Error)
+//  4. Предотвращает краш приложения
 //
 // Когда использовать:
-//   Должен быть первым middleware в цепочке, чтобы перехватывать паники
-//   из всех последующих middleware и handlers.
+//
+//	Должен быть первым middleware в цепочке, чтобы перехватывать паники
+//	из всех последующих middleware и handlers.
 //
 // Пример использования:
 //
@@ -51,6 +53,8 @@ func RecoveryMiddleware() gin.HandlerFunc {
 		defer func() {
 			// Пытаемся перехватить панику
 			if err := recover(); err != nil {
+				requestID, _ := GetRequestIDFromContext(c)
+
 				// ============================================
 				// ПАНИКА ПЕРЕХВАЧЕНА - ОБРАБОТКА
 				// ============================================
@@ -61,14 +65,17 @@ func RecoveryMiddleware() gin.HandlerFunc {
 
 				// Логируем панику с полными деталями
 				// Это критическая ошибка, поэтому используем Error уровень
-				logger.Error().
-					Interface("panic", err).                    // Значение, переданное в panic()
-					Str("stack", string(stack)).                // Полный stack trace
-					Str("path", c.Request.URL.Path).            // Путь запроса
-					Str("method", c.Request.Method).            // HTTP метод
-					Str("client_ip", c.ClientIP()).             // IP адрес клиента
-					Str("user_agent", c.Request.UserAgent()).   // User-Agent браузера
-					Msg("Panic recovered")
+				event := logger.Error().
+					Interface("panic", err).                 // Значение, переданное в panic()
+					Str("stack", string(stack)).             // Полный stack trace
+					Str("path", c.Request.URL.Path).         // Путь запроса
+					Str("method", c.Request.Method).         // HTTP метод
+					Str("client_ip", c.ClientIP()).          // IP адрес клиента
+					Str("user_agent", c.Request.UserAgent()) // User-Agent браузера
+				if requestID != "" {
+					event.Str("request_id", requestID)
+				}
+				event.Msg("Panic recovered")
 
 				// ============================================
 				// ОТПРАВКА ОТВЕТА ПОЛЬЗОВАТЕЛЮ
@@ -133,16 +140,20 @@ func RecoveryMiddlewareWithStack(showStack bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
+				requestID, _ := GetRequestIDFromContext(c)
 				stack := debug.Stack()
 
 				// Всегда логируем с полными деталями
-				logger.Error().
+				event := logger.Error().
 					Interface("panic", err).
 					Str("stack", string(stack)).
 					Str("path", c.Request.URL.Path).
 					Str("method", c.Request.Method).
-					Str("client_ip", c.ClientIP()).
-					Msg("Panic recovered")
+					Str("client_ip", c.ClientIP())
+				if requestID != "" {
+					event.Str("request_id", requestID)
+				}
+				event.Msg("Panic recovered")
 
 				// Формируем ответ
 				var panicErr error
@@ -179,4 +190,3 @@ func RecoveryMiddlewareWithStack(showStack bool) gin.HandlerFunc {
 		c.Next()
 	}
 }
-
