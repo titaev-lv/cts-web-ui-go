@@ -74,24 +74,26 @@
 
 ---
 
-## ✅ Задача 1.4: Система логирования (zerolog)
+## ✅ Задача 1.4: Система логирования (slog)
 
 ### Проверено:
 - ✅ `internal/logger/logger.go` - реализован
-- ✅ Функция `Init()` - инициализация логгера
-- ✅ Функция `Get()` - получение глобального логгера
+- ✅ Функция `Init() error` - fail-fast инициализация логгера
+- ✅ Функция `Get()` - получение error logger
+- ✅ Функция `Access()` - получение access logger
 - ✅ Функции `Debug()`, `Info()`, `Warn()`, `Error()`, `Fatal()`, `Panic()`
-- ✅ Функция `LogRequest()` - логирование HTTP запросов
-- ✅ Функция `LogDatabaseQuery()` - логирование SQL запросов
+- ✅ Авто-проставление `module` в лог-событиях
 - ✅ Поддержка форматов: text и json
 - ✅ Поддержка вывода: stdout, file, both
 - ✅ Ротация файлов через `lumberjack`
-- ✅ Используется `github.com/rs/zerolog`
+- ✅ Разделение на `error.log` и `access.log`
+- ✅ Проверка доступности директории логов на запись
 - ✅ Интеграция с конфигурацией
+- ✅ `request_id` middleware и сквозной проброс (`X-Request-ID`) — реализовано
 
 **Файлы:**
-- `internal/logger/logger.go` (340 строк)
-- `internal/logger/examples.go` - примеры использования
+- `internal/logger/logger.go`
+- `internal/middleware/access_log.go`
 - `internal/logger/LOGGING.md` - документация
 - `LOGGING_SETUP.md` - описание реализации
 
@@ -185,16 +187,17 @@
 - ✅ Подключение к БД
 - ✅ Настройка Gin роутера
 - ✅ Recovery middleware (первым)
-- ✅ Gin Logger middleware
+- ✅ AccessLog middleware
 - ✅ Security Headers middleware
 - ✅ Auth middleware
 - ✅ Rate limiting для логина
 - ✅ Регистрация контроллеров
 - ✅ Настройка статических файлов
 - ✅ Настройка шаблонов
-- ✅ Запуск сервера
+- ✅ Graceful shutdown (SIGINT/SIGTERM + `server.Shutdown()`)
+- ✅ Закрытие логгеров (`defer logger.Close()`)
 
-**Файл:** `cmd/web/main.go` (157 строк)
+**Файл:** `cmd/web/main.go`
 
 **Статус:** ✅ ВЫПОЛНЕНО
 
@@ -205,12 +208,11 @@
 ### Проверено:
 - ✅ `github.com/gin-gonic/gin` - веб-фреймворк
 - ✅ `github.com/go-sql-driver/mysql` - драйвер MySQL
-- ✅ `github.com/golang-jwt/jwt/v5` - JWT токены
-- ✅ `github.com/rs/zerolog` - логирование
 - ✅ `github.com/spf13/viper` - конфигурация
 - ✅ `github.com/natefinch/lumberjack` - ротация логов
 - ✅ `github.com/microcosm-cc/bluemonday` - XSS защита
 - ✅ `github.com/gorilla/csrf` - CSRF защита
+- ✅ `github.com/gorilla/sessions` - сессии
 - ✅ `github.com/ulule/limiter/v3` - rate limiting
 
 **Статус:** ✅ ВСЕ ЗАВИСИМОСТИ УСТАНОВЛЕНЫ
@@ -268,7 +270,7 @@ go build ./cmd/web/main.go
 1. ✅ **1.1** - Структура директорий проекта
 2. ✅ **1.2** - Настроить конфигурацию (YAML config loader)
 3. ✅ **1.3** - Подключение к БД (connection pool, транзакции)
-4. ✅ **1.4** - Система логирования (zerolog)
+4. ✅ **1.4** - Система логирования (slog + access/error split)
 5. ✅ **1.5** - Security Middleware (XSS, CSRF, headers)
 6. ✅ **1.6** - Централизованная обработка ошибок
 7. ✅ **1.7** - Recovery middleware (panic handling)

@@ -4,15 +4,18 @@
 
 ## Обзор
 
-Система логирования построена на основе **zerolog** - быстрой и структурированной библиотеки логирования для Go.
+Система логирования построена на основе **log/slog** - стандартной библиотеки логирования для Go.
 
 ### Основные возможности
 
 - ✅ Структурированное логирование (JSON или читаемый текст)
 - ✅ Разные уровни логирования (Debug, Info, Warn, Error, Fatal, Panic)
 - ✅ Вывод в консоль, файл или оба места одновременно
+- ✅ Разделение на error.log и access.log
 - ✅ Автоматическая ротация файлов логов
 - ✅ Сжатие старых логов (gzip)
+- ✅ Fail-fast проверка директории логов на запись
+- ✅ Автоматический `module` тег по caller path
 - ✅ Интеграция с конфигурацией
 
 ## Уровни логирования
@@ -41,7 +44,10 @@ if err != nil {
 }
 
 // 2. Инициализируем логгер
-logger.Init()
+if err := logger.Init(); err != nil {
+    log.Fatal(err)
+}
+defer logger.Close()
 
 // 3. Теперь можно использовать
 logger.Info().Msg("Application started")
@@ -76,7 +82,7 @@ logger.Error().
 
 ## Типы полей
 
-Zerolog поддерживает разные типы полей:
+Обёртка `logger.Event` поддерживает разные типы полей:
 
 ```go
 logger.Info().
@@ -137,37 +143,32 @@ logger.Fatal().
 // Программа завершится после этого лога
 ```
 
-## Контекстное логирование
+## Модульность
 
-Создание логгера с постоянными полями:
+По умолчанию `module` добавляется автоматически на основе пути вызывающего пакета (например: `controllers`, `services`, `repositories`, `middleware`).
 
-```go
-// Создаём логгер с контекстом
-userLogger := logger.WithContext().
-    Str("user_id", "789").
-    Str("session_id", "abc123").
-    Logger()
-
-// Все логи этого логгера будут содержать user_id и session_id
-userLogger.Info().Msg("User action 1")
-userLogger.Info().Msg("User action 2")
-```
-
-## Специальные функции
-
-### Логирование HTTP запросов
+Если нужно переопределить модуль вручную:
 
 ```go
-logger.LogRequest("POST", "/api/users", 200, time.Since(start), "192.168.1.1")
+logger.Info().
+    Str("module", "auth").
+    Str("event", "login").
+    Msg("User authenticated")
 ```
 
-### Логирование SQL запросов
+## Access логирование
 
-```go
-start := time.Now()
-result, err := db.Exec("SELECT * FROM users")
-logger.LogDatabaseQuery("SELECT * FROM users", time.Since(start), err)
-```
+HTTP access-логи пишутся через middleware `internal/middleware/access_log.go` в `access.log` и дублируются в stdout.
+
+Стандартные поля access-лога:
+- `module`
+- `method`
+- `path`
+- `status`
+- `latency_ms`
+- `ip`
+- `user_agent`
+- `user_id` (если пользователь авторизован)
 
 ## Конфигурация
 
@@ -175,14 +176,18 @@ logger.LogDatabaseQuery("SELECT * FROM users", time.Since(start), err)
 
 ```yaml
 logging:
-  level: "info"        # debug, info, warn, error
-  format: "text"       # text (читаемый) или json (структурированный)
-  output: "both"       # stdout, file или both
-  file: "./logs/ct-system.log"
-  max_size: 100        # МБ
-  max_backups: 5       # Количество архивных файлов
-  max_age: 30          # Дни
-  compress: true       # Сжимать старые логи
+    level: "info"            # debug, info, warn, error
+    format: "text"           # text (читаемый) или json (структурированный)
+    output: "both"           # stdout, file или both
+    file: "./logs/error.log"
+    max_size: 100             # МБ
+    max_backups: 5            # Количество архивных файлов
+    max_age: 30               # Дни
+    compress: true            # Сжимать старые логи
+    access_file: "./logs/access.log"
+    access_max_size: 50
+    access_max_backups: 10
+    access_max_age: 7
 ```
 
 ## Форматы вывода
@@ -207,9 +212,10 @@ logging:
 
 ```
 logs/
-  ct-system.log          # Текущий файл
-  ct-system.log.20241214 # Архив за 14 декабря
-  ct-system.log.20241213.gz # Сжатый архив за 13 декабря
+    error.log
+    error.log.1.gz
+    access.log
+    access.log.1.gz
 ```
 
 ## Сравнение с PHP кодом
@@ -268,54 +274,27 @@ logs/
 
 ## Примеры из реального кода
 
-### Создание пользователя
+### Лог события в сервисе
 
 ```go
-func CreateUser(name, email string) error {
-    logger.Info().
-        Str("operation", "create_user").
-        Str("email", email).
-        Msg("Creating new user")
-    
-    userID, err := createUserInDB(name, email)
-    if err != nil {
-        logger.Error().
-            Err(err).
-            Str("email", email).
-            Msg("Failed to create user")
-        return err
-    }
-    
-    logger.Info().
-        Int("user_id", userID).
-        Str("email", email).
-        Msg("User created successfully")
-    
-    return nil
-}
+logger.Info().
+    Str("event", "user_created").
+    Int("user_id", userID).
+    Msg("User created successfully")
 ```
 
-### HTTP запрос
+### Лог ошибки
 
 ```go
-func HandleRequest(c *gin.Context) {
-    start := time.Now()
-    
-    // ... обработка запроса ...
-    
-    logger.LogRequest(
-        c.Request.Method,
-        c.Request.URL.Path,
-        c.Writer.Status(),
-        time.Since(start),
-        c.ClientIP(),
-    )
-}
+logger.Error().
+    Err(err).
+    Str("operation", "create_user").
+    Msg("Failed to create user")
 ```
 
 ## Дополнительные ресурсы
 
-- [Zerolog Documentation](https://github.com/rs/zerolog)
+- Go `log/slog` package documentation
 - [Lumberjack (Rotation)](https://github.com/natefinch/lumberjack)
 
 ---
