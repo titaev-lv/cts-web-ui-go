@@ -67,7 +67,7 @@ logging:
 
 # Daemon configuration
 daemon:
-  path: "/home/ctdaemon/ctdaemon"
+  path: "/home/trader/trader"
   check_interval: 5s  # How often to check daemon status
 
 # Application settings
