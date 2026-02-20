@@ -6,6 +6,7 @@ import (
 	"ctweb/internal/session"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -68,11 +69,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		// ============================================
 		// ЗАЩИЩЁННЫЕ МАРШРУТЫ (требуют авторизации)
 		// ============================================
+		authStart := time.Now()
 		sm := session.GetSessionManager()
 
 		// ШАГ 1: Пытаемся получить пользователя из сессии
 		user, isAuth, err := sm.GetUser(c.Request)
 		if err != nil {
+			AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 			logger.Error().
 				Err(err).
 				Str("path", c.Request.URL.Path).
@@ -94,6 +97,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		if !isAuth {
 			user, restored, err := sm.RestoreUserFromCookies(c.Request, c.Writer)
 			if err != nil {
+				AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 				logger.Error().
 					Err(err).
 					Str("path", c.Request.URL.Path).
@@ -112,6 +116,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 
 			if !restored {
+				AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 				// Пользователь не авторизован и не восстановлен из cookies
 				// Редиректим на страницу входа или возвращаем JSON ошибку
 				logger.Debug().
@@ -142,6 +147,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// ШАГ 3: Проверяем, что пользователь активен
 		if !user.IsActive() {
+			AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 			logger.Warn().
 				Int("user_id", user.ID).
 				Str("login", user.Login).
@@ -164,6 +170,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// ШАГ 4: Проверяем, что у пользователя есть активные группы
 		if len(user.Groups) == 0 {
+			AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 			logger.Warn().
 				Int("user_id", user.ID).
 				Str("login", user.Login).
@@ -187,6 +194,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// ШАГ 5: Пользователь авторизован - сохраняем в контекст Gin
 		// Это позволяет контроллерам получать данные пользователя через GetUserFromContext()
 		c.Set(ContextKeyUser, user)
+		AddLatencyPart(c, "auth_middleware_ms", time.Since(authStart))
 
 		// Продолжаем обработку запроса
 		c.Next()

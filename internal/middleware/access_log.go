@@ -26,6 +26,7 @@ func AccessLogMiddleware() gin.HandlerFunc {
 
 		status := c.Writer.Status()
 		latency := time.Since(start)
+		latencyMS := float64(latency.Microseconds()) / 1000.0
 
 		var userID any = nil
 		if user, ok := GetUserFromContext(c); ok {
@@ -34,16 +35,17 @@ func AccessLogMiddleware() gin.HandlerFunc {
 
 		requestID, _ := GetRequestIDFromContext(c)
 
-		log.Info("HTTP access",
-			"module", "access",
+		fields := []any{
 			"request_id", requestID,
 			"method", method,
 			"path", path,
 			"status", status,
-			"latency_ms", latency.Milliseconds(),
+			"latency_ms", latencyMS,
 			"ip", clientIP,
 			"user_agent", userAgent,
 			"user_id", userID,
-		)
+		}
+
+		log.Info("HTTP access", fields...)
 	}
 }

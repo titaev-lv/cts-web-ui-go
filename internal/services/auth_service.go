@@ -12,6 +12,7 @@ import (
 	"ctweb/internal/utils"
 	"encoding/hex"
 	"fmt"
+	"time"
 )
 
 // AuthService - сервис для аутентификации пользователей.
@@ -39,21 +40,22 @@ func NewAuthService() *AuthService {
 //   - Token: токен для "Remember Me" (если remember = true)
 //   - Error: ошибка (если вход не удался)
 type LoginResult struct {
-	User  *models.User `json:"user,omitempty"`
-	Token string       `json:"token,omitempty"`
-	Error error        `json:"-"`
+	User    *models.User       `json:"user,omitempty"`
+	Token   string             `json:"token,omitempty"`
+	Timings map[string]float64 `json:"-"`
+	Error   error              `json:"-"`
 }
 
 // Login выполняет аутентификацию пользователя.
 //
 // Что делает:
-//   1. Находит пользователя по логину
-//   2. Проверяет, что пользователь активен
-//   3. Проверяет пароль через bcrypt
-//   4. Проверяет, что у пользователя есть активные группы
-//   5. Загружает группы пользователя
-//   6. Обновляет временную метку активности
-//   7. Если remember = true, генерирует токен и сохраняет его
+//  1. Находит пользователя по логину
+//  2. Проверяет, что пользователь активен
+//  3. Проверяет пароль через bcrypt
+//  4. Проверяет, что у пользователя есть активные группы
+//  5. Загружает группы пользователя
+//  6. Обновляет временную метку активности
+//  7. Если remember = true, генерирует токен и сохраняет его
 //
 // Параметры:
 //   - login: логин пользователя
@@ -71,17 +73,31 @@ type LoginResult struct {
 //	    // Обработка ошибки
 //	}
 func (s *AuthService) Login(login, password string, remember bool) *LoginResult {
+	loginStart := time.Now()
+	timings := map[string]float64{}
+	addTiming := func(key string, startedAt time.Time) {
+		timings[key] = float64(time.Since(startedAt).Microseconds()) / 1000.0
+	}
+	finalizeTimings := func() map[string]float64 {
+		timings["auth_service_ms"] = float64(time.Since(loginStart).Microseconds()) / 1000.0
+		timings["db_latency_ms"] = timings["db_find_user_ms"] + timings["db_find_groups_ms"] + timings["db_update_timestamp_ms"] + timings["db_update_token_ms"]
+		return timings
+	}
+
 	// ============================================
 	// ШАГ 1: Поиск пользователя по логину
 	// ============================================
+	findUserStart := time.Now()
 	user, err := s.userRepo.FindByLogin(login)
+	addTiming("db_find_user_ms", findUserStart)
 	if err != nil {
 		logger.Warn().
 			Str("login", login).
 			Err(err).
 			Msg("Login attempt: user not found")
 		return &LoginResult{
-			Error: errors.UnauthorizedError("Bad Login or Password"),
+			Timings: finalizeTimings(),
+			Error:   errors.UnauthorizedError("Bad Login or Password"),
 		}
 	}
 
@@ -98,7 +114,8 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 			Str("reason", "user_blocked").
 			Msg("Login attempt failed: user is blocked")
 		return &LoginResult{
-			Error: errors.UnauthorizedError("User is blocked"),
+			Timings: finalizeTimings(),
+			Error:   errors.UnauthorizedError("User is blocked"),
 		}
 	}
 
@@ -108,7 +125,9 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 	// Сравниваем введённый пароль с хешем из БД
 	// utils.PasswordVerify использует bcrypt.CompareHashAndPassword,
 	// который автоматически проверяет пароль и защищает от timing attacks
+	passwordVerifyStart := time.Now()
 	isValid, err := utils.PasswordVerify(password, user.Password)
+	addTiming("password_verify_ms", passwordVerifyStart)
 	if err != nil || !isValid {
 		// ВАЖНО: НЕ логируем пароль в открытом виде!
 		// Логируем только метаданные для безопасности:
@@ -124,7 +143,8 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 			Str("reason", "incorrect_password").
 			Msg("Login attempt failed: incorrect password")
 		return &LoginResult{
-			Error: errors.UnauthorizedError("Bad Login or Password"),
+			Timings: finalizeTimings(),
+			Error:   errors.UnauthorizedError("Bad Login or Password"),
 		}
 	}
 
@@ -132,14 +152,17 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 	// ШАГ 4: Загрузка групп пользователя
 	// ============================================
 	// Загружаем только активные группы
+	findGroupsStart := time.Now()
 	groups, err := s.userRepo.FindGroupsByUserID(user.ID)
+	addTiming("db_find_groups_ms", findGroupsStart)
 	if err != nil {
 		logger.Error().
 			Err(err).
 			Int("user_id", user.ID).
 			Msg("Failed to load user groups")
 		return &LoginResult{
-			Error: errors.InternalError("Failed to load user groups", err),
+			Timings: finalizeTimings(),
+			Error:   errors.InternalError("Failed to load user groups", err),
 		}
 	}
 
@@ -150,7 +173,8 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 			Str("login", login).
 			Msg("Login attempt: user has no active groups")
 		return &LoginResult{
-			Error: errors.UnauthorizedError("User's groups is blocked or group not set"),
+			Timings: finalizeTimings(),
+			Error:   errors.UnauthorizedError("User's groups is blocked or group not set"),
 		}
 	}
 
@@ -161,7 +185,9 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 	// ШАГ 5: Обновление временной метки активности
 	// ============================================
 	// Обновляем TIMESTAMP_X в БД (время последнего входа)
+	updateTimestampStart := time.Now()
 	err = s.userRepo.UpdateTimestamp(user.ID)
+	addTiming("db_update_timestamp_ms", updateTimestampStart)
 	if err != nil {
 		// Логируем ошибку, но не прерываем процесс входа
 		logger.Warn().
@@ -188,14 +214,17 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 		}
 
 		// Сохраняем токен в БД
+		updateTokenStart := time.Now()
 		err = s.userRepo.UpdateToken(user.ID, token)
+		addTiming("db_update_token_ms", updateTokenStart)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Int("user_id", user.ID).
 				Msg("Failed to save remember me token")
 			return &LoginResult{
-				Error: errors.InternalError("Failed to save token", err),
+				Timings: finalizeTimings(),
+				Error:   errors.InternalError("Failed to save token", err),
 			}
 		}
 	}
@@ -212,17 +241,18 @@ func (s *AuthService) Login(login, password string, remember bool) *LoginResult 
 
 	// Возвращаем успешный результат
 	return &LoginResult{
-		User:  user,
-		Token: token,
-		Error: nil,
+		User:    user,
+		Token:   token,
+		Timings: finalizeTimings(),
+		Error:   nil,
 	}
 }
 
 // Logout выполняет выход пользователя из системы.
 //
 // Что делает:
-//   1. Удаляет токен "Remember Me" из БД (очищает поле TOKEN)
-//   2. Логирует выход
+//  1. Удаляет токен "Remember Me" из БД (очищает поле TOKEN)
+//  2. Логирует выход
 //
 // Параметры:
 //   - userID: ID пользователя
@@ -260,10 +290,10 @@ func (s *AuthService) Logout(userID int) error {
 // Используется при восстановлении сессии из cookie.
 //
 // Что делает:
-//   1. Находит пользователя по логину и токену
-//   2. Проверяет, что пользователь активен
-//   3. Загружает группы пользователя
-//   4. Обновляет временную метку активности
+//  1. Находит пользователя по логину и токену
+//  2. Проверяет, что пользователь активен
+//  3. Загружает группы пользователя
+//  4. Обновляет временную метку активности
 //
 // Параметры:
 //   - login: логин из cookie
@@ -372,4 +402,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-

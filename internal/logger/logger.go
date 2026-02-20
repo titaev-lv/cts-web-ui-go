@@ -94,7 +94,7 @@ func Init() error {
 	}
 
 	errorLogger = slog.New(buildHandler(logCfg.Format, errorWriter))
-	accessLogger = slog.New(buildHandler(logCfg.Format, accessWriter))
+	accessLogger = slog.New(buildAccessHandler(logCfg.Format, accessWriter))
 	auditLogger = slog.New(buildHandler(logCfg.Format, auditWriter))
 	if errorLogger != nil {
 		slog.SetDefault(errorLogger)
@@ -284,6 +284,20 @@ func buildHandler(format string, writer io.Writer) slog.Handler {
 	}
 }
 
+func buildAccessHandler(format string, writer io.Writer) slog.Handler {
+	opts := &slog.HandlerOptions{
+		Level:       logLevel,
+		ReplaceAttr: replaceAccessAttr,
+	}
+
+	switch strings.ToLower(format) {
+	case "text":
+		return slog.NewTextHandler(writer, opts)
+	default:
+		return slog.NewJSONHandler(writer, opts)
+	}
+}
+
 func parseLevel(level string) slog.Level {
 	switch strings.ToLower(level) {
 	case "debug":
@@ -372,6 +386,14 @@ func replaceTimeAttr(_ []string, attr slog.Attr) slog.Attr {
 	}
 	if t, ok := attr.Value.Any().(time.Time); ok {
 		attr.Value = slog.StringValue(t.UTC().Format("2006-01-02T15:04:05.000000Z"))
+	}
+	return attr
+}
+
+func replaceAccessAttr(groups []string, attr slog.Attr) slog.Attr {
+	attr = replaceTimeAttr(groups, attr)
+	if attr.Key == slog.MessageKey || attr.Key == "module" {
+		return slog.Attr{}
 	}
 	return attr
 }

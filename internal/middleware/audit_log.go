@@ -32,6 +32,7 @@ func AuditLogMiddleware() gin.HandlerFunc {
 
 		status := c.Writer.Status()
 		latency := time.Since(start)
+		latencyMS := float64(latency.Microseconds()) / 1000.0
 		requestID, _ := GetRequestIDFromContext(c)
 
 		action, resourceType := inferAuditAction(path, method)
@@ -53,7 +54,7 @@ func AuditLogMiddleware() gin.HandlerFunc {
 			event = log.Warn
 		}
 
-		event("audit",
+		fields := []any{
 			"module", "audit",
 			"event_type", "audit",
 			"action", action,
@@ -62,13 +63,48 @@ func AuditLogMiddleware() gin.HandlerFunc {
 			"path", path,
 			"status", status,
 			"result", result,
-			"latency_ms", latency.Milliseconds(),
 			"ip", clientIP,
 			"user_agent", userAgent,
 			"request_id", requestID,
 			"user_id", userID,
 			"user_login", userLogin,
-		)
+		}
+
+		hasBreakdown := false
+
+		if gin.Mode() == gin.DebugMode {
+			if requestStart, ok := GetRequestStartFromContext(c); ok {
+				requestTotalMS := float64(time.Since(requestStart).Microseconds()) / 1000.0
+				beforeMiddlewareMS := float64(start.Sub(requestStart).Microseconds()) / 1000.0
+				if beforeMiddlewareMS < 0 {
+					beforeMiddlewareMS = 0
+				}
+				outsideScopeMS := requestTotalMS - beforeMiddlewareMS - latencyMS
+				if outsideScopeMS < 0 {
+					outsideScopeMS = 0
+				}
+
+				breakdown := map[string]float64{
+					"total_latency_ms":       requestTotalMS,
+					"request_handler_ms":     latencyMS,
+					"middleware_overhead_ms": beforeMiddlewareMS + outsideScopeMS,
+				}
+				if parts, ok := GetLatencyParts(c); ok {
+					for key, value := range parts {
+						breakdown[key] = value
+					}
+				}
+
+				fields = append(fields, "latency_ms", breakdown)
+				hasBreakdown = true
+			}
+		}
+
+		if !hasBreakdown {
+			fields = append(fields, "latency_ms", latencyMS)
+		}
+
+		event("audit", fields...)
 	}
 }
 

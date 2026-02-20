@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -140,7 +141,12 @@ func (u *UserController) Login(c *gin.Context) {
 	// ============================================
 	// Используем AuthService для входа (он использует bcrypt и загружает группы)
 	authService := services.NewAuthService()
+	authServiceStart := time.Now()
 	result := authService.Login(username, password, remember)
+	middleware.AddLatencyPart(c, "auth_service_call_ms", time.Since(authServiceStart))
+	for key, value := range result.Timings {
+		middleware.AddLatencyPartMS(c, key, value)
+	}
 
 	// Проверяем результат
 	if result.Error != nil {
@@ -170,7 +176,9 @@ func (u *UserController) Login(c *gin.Context) {
 	// ============================================
 	// Сохраняем данные пользователя в сессию (как в PHP: $_SESSION['ct_user'])
 	sm := session.GetSessionManager()
+	sessionStart := time.Now()
 	if err := sm.SetUser(c.Request, c.Writer, result.User); err != nil {
+		middleware.AddLatencyPart(c, "session_write_ms", time.Since(sessionStart))
 		logger.Error().
 			Err(err).
 			Int("user_id", result.User.ID).
@@ -184,11 +192,15 @@ func (u *UserController) Login(c *gin.Context) {
 
 	// Если выбрано "Remember Me", устанавливаем cookies с токеном
 	if remember && result.Token != "" {
+		rememberStart := time.Now()
 		sm.SetRememberMeCookies(c.Writer, username, result.Token)
+		middleware.AddLatencyPart(c, "remember_cookie_ms", time.Since(rememberStart))
 		logger.Debug().
 			Str("login", username).
 			Msg("Remember Me cookies set")
 	}
+
+	middleware.AddLatencyPart(c, "session_write_ms", time.Since(sessionStart))
 
 	// ============================================
 	// ШАГ 5: Логирование успешного входа
