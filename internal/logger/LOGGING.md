@@ -197,15 +197,15 @@ logging:
     level: "info"            # debug, info, warn, error
     format: "text"           # text (читаемый) или json (структурированный)
     output: "both"           # stdout, file или both
-    file: "./logs/error.log"
-    max_size: 100             # МБ
+    error_path: "./logs/error.log"
+    max_size_mb: 100          # МБ
     max_backups: 5            # Количество архивных файлов
-    max_age: 30               # Дни
+    max_age_days: 30          # Дни
     compress: true            # Сжимать старые логи
-    access_file: "./logs/access.log"
-    access_max_size: 50
+    access_path: "./logs/access.log"
+    access_max_size_mb: 50
     access_max_backups: 10
-    access_max_age: 7
+    access_max_age_days: 7
 ```
 
 ## Форматы вывода

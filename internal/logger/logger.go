@@ -37,29 +37,29 @@ func Init() error {
 
 	logLevel = parseLevel(logCfg.Level)
 
-	errorPath := logCfg.File
+	errorPath := logCfg.ErrorPath
 	if errorPath == "" {
 		errorPath = "./logs/ct-system.log"
 	}
 
-	accessPath := logCfg.AccessFile
+	accessPath := logCfg.AccessPath
 	if accessPath == "" {
 		accessPath = defaultAccessPath(errorPath)
 	}
 
-	auditPath := logCfg.AuditFile
+	auditPath := logCfg.AuditPath
 	if auditPath == "" {
 		auditPath = defaultAuditPath(errorPath)
 	}
 
-	errorWriter, err := buildWriter(logCfg.Output, errorPath, logCfg.MaxSize, logCfg.MaxBackups, logCfg.MaxAge, logCfg.Compress)
+	errorWriter, err := buildWriter(logCfg.Output, errorPath, logCfg.MaxSizeMB, logCfg.MaxBackups, logCfg.MaxAgeDays, logCfg.Compress)
 	if err != nil {
 		return fmt.Errorf("init error logger: %w", err)
 	}
 
-	accessMaxSize := logCfg.AccessMaxSize
+	accessMaxSize := logCfg.AccessMaxSizeMB
 	accessMaxBackups := logCfg.AccessMaxBackups
-	accessMaxAge := logCfg.AccessMaxAge
+	accessMaxAge := logCfg.AccessMaxAgeDays
 	if accessMaxSize <= 0 {
 		accessMaxSize = 50
 	}
@@ -75,9 +75,9 @@ func Init() error {
 		return fmt.Errorf("init access logger: %w", err)
 	}
 
-	auditMaxSize := logCfg.AuditMaxSize
+	auditMaxSize := logCfg.AuditMaxSizeMB
 	auditMaxBackups := logCfg.AuditMaxBackups
-	auditMaxAge := logCfg.AuditMaxAge
+	auditMaxAge := logCfg.AuditMaxAgeDays
 	if auditMaxSize <= 0 {
 		auditMaxSize = 100
 	}

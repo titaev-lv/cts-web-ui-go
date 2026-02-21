@@ -40,17 +40,17 @@ type DatabaseConfig struct {
 
 // MySQLConfig - детальные настройки для подключения к MySQL
 type MySQLConfig struct {
-	Host               string        `mapstructure:"host"`                     // Адрес сервера БД (например, "localhost")
-	Port               int           `mapstructure:"port"`                     // Порт MySQL (обычно 3306)
-	User               string        `mapstructure:"user"`                     // Имя пользователя БД
-	Password           string        `mapstructure:"password"`                 // Пароль пользователя БД
-	Database           string        `mapstructure:"database"`                 // Имя базы данных
-	Charset            string        `mapstructure:"charset"`                  // Кодировка (обычно "utf8mb4")
-	ParseTime          bool          `mapstructure:"parse_time"`               // Автоматически парсить время из БД в Go time.Time
-	MaxConnections     int           `mapstructure:"max_connections"`          // Максимальное количество открытых соединений
-	MaxIdleConnections int           `mapstructure:"max_idle_connections"`     // Максимальное количество неактивных соединений в пуле
-	ConnMaxLifetime    time.Duration `mapstructure:"connection_max_lifetime"`  // Максимальное время жизни соединения (300s = 5 минут)
-	ConnMaxIdleTime    time.Duration `mapstructure:"connection_max_idle_time"` // Максимальное время простоя соединения (60s = 1 минута)
+	Host            string        `mapstructure:"host"`               // Адрес сервера БД (например, "localhost")
+	Port            int           `mapstructure:"port"`               // Порт MySQL (обычно 3306)
+	User            string        `mapstructure:"user"`               // Имя пользователя БД
+	Password        string        `mapstructure:"password"`           // Пароль пользователя БД
+	Database        string        `mapstructure:"database"`           // Имя базы данных
+	Charset         string        `mapstructure:"charset"`            // Кодировка (обычно "utf8mb4")
+	ParseTime       bool          `mapstructure:"parse_time"`         // Автоматически парсить время из БД в Go time.Time
+	MaxOpenConns    int           `mapstructure:"max_open_conns"`     // Максимальное количество открытых соединений
+	MaxIdleConns    int           `mapstructure:"max_idle_conns"`     // Максимальное количество неактивных соединений в пуле
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`  // Максимальное время жизни соединения (300s = 5 минут)
+	ConnMaxIdleTime time.Duration `mapstructure:"conn_max_idle_time"` // Максимальное время простоя соединения (60s = 1 минута)
 }
 
 // OracleConfig - настройки для Oracle (заготовка на будущее)
@@ -80,22 +80,22 @@ type SecurityConfig struct {
 
 // LoggingConfig - настройки системы логирования
 type LoggingConfig struct {
-	Level            string `mapstructure:"level"`              // Уровень логирования: "debug", "info", "warn", "error"
-	Format           string `mapstructure:"format"`             // Формат логов: "json" (структурированный) или "text" (читаемый)
-	Output           string `mapstructure:"output"`             // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
-	File             string `mapstructure:"file"`               // Путь к файлу логов (если output = "file" или "both")
-	MaxSize          int    `mapstructure:"max_size"`           // Максимальный размер файла лога в МБ (100 МБ)
-	MaxBackups       int    `mapstructure:"max_backups"`        // Количество архивных файлов логов (5 файлов)
-	MaxAge           int    `mapstructure:"max_age"`            // Хранить логи N дней (30 дней)
-	Compress         bool   `mapstructure:"compress"`           // Сжимать старые логи (gzip)
-	AccessFile       string `mapstructure:"access_file"`        // Путь к access log (если пусто, создается рядом с File)
-	AccessMaxSize    int    `mapstructure:"access_max_size"`    // Максимальный размер access log в МБ
-	AccessMaxBackups int    `mapstructure:"access_max_backups"` // Количество архивных access log файлов
-	AccessMaxAge     int    `mapstructure:"access_max_age"`     // Хранить access log N дней
-	AuditFile        string `mapstructure:"audit_file"`         // Путь к audit log (если пусто, создается рядом с File)
-	AuditMaxSize     int    `mapstructure:"audit_max_size"`     // Максимальный размер audit log в МБ
-	AuditMaxBackups  int    `mapstructure:"audit_max_backups"`  // Количество архивных audit log файлов
-	AuditMaxAge      int    `mapstructure:"audit_max_age"`      // Хранить audit log N дней
+	Level            string `mapstructure:"level"`               // Уровень логирования: "debug", "info", "warn", "error"
+	Format           string `mapstructure:"format"`              // Формат логов: "json" (структурированный) или "text" (читаемый)
+	Output           string `mapstructure:"output"`              // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
+	ErrorPath        string `mapstructure:"error_path"`          // Путь к файлу логов (если output = "file" или "both")
+	MaxSizeMB        int    `mapstructure:"max_size_mb"`         // Максимальный размер файла лога в МБ (100 МБ)
+	MaxBackups       int    `mapstructure:"max_backups"`         // Количество архивных файлов логов (5 файлов)
+	MaxAgeDays       int    `mapstructure:"max_age_days"`        // Хранить логи N дней (30 дней)
+	Compress         bool   `mapstructure:"compress"`            // Сжимать старые логи (gzip)
+	AccessPath       string `mapstructure:"access_path"`         // Путь к access log (если пусто, создается рядом с File)
+	AccessMaxSizeMB  int    `mapstructure:"access_max_size_mb"`  // Максимальный размер access log в МБ
+	AccessMaxBackups int    `mapstructure:"access_max_backups"`  // Количество архивных access log файлов
+	AccessMaxAgeDays int    `mapstructure:"access_max_age_days"` // Хранить access log N дней
+	AuditPath        string `mapstructure:"audit_path"`          // Путь к audit log (если пусто, создается рядом с File)
+	AuditMaxSizeMB   int    `mapstructure:"audit_max_size_mb"`   // Максимальный размер audit log в МБ
+	AuditMaxBackups  int    `mapstructure:"audit_max_backups"`   // Количество архивных audit log файлов
+	AuditMaxAgeDays  int    `mapstructure:"audit_max_age_days"`  // Хранить audit log N дней
 }
 
 // DaemonConfig - настройки для управления внешним демоном
