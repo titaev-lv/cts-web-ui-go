@@ -134,7 +134,7 @@ func RateLimitMiddleware(limit, period, message string) gin.HandlerFunc {
 
 // LoginRateLimitMiddleware создаёт rate limiter для страницы входа.
 //
-// Использует настройки из конфигурации (rate_limit_login).
+// Использует настройки из конфигурации (rate_limit.login.requests_per_minute).
 //
 // Возвращает:
 //   - gin.HandlerFunc: rate limit middleware для логина
@@ -144,15 +144,18 @@ func RateLimitMiddleware(limit, period, message string) gin.HandlerFunc {
 //	auth.POST("/login", middleware.LoginRateLimitMiddleware(), loginHandler)
 func LoginRateLimitMiddleware() gin.HandlerFunc {
 	cfg := config.Get()
-	// Используем настройку из конфигурации: X запросов в минуту
-	// Формат: "5-M" означает 5 запросов в минуту
-	limit := strconv.Itoa(cfg.Security.RateLimitLogin) + "-M"
+	// burst в библиотеке не выделяется отдельно, поэтому используем суммарный лимит окна
+	windowLimit := cfg.RateLimit.Login.RequestsPerMinute + cfg.RateLimit.Login.Burst
+	if windowLimit <= 0 {
+		windowLimit = 1
+	}
+	limit := strconv.Itoa(windowLimit) + "-M"
 	return RateLimitMiddleware(limit, "", "Too many login attempts. Please try again later.")
 }
 
 // APIRateLimitMiddleware создаёт rate limiter для API endpoints.
 //
-// Использует настройки из конфигурации (rate_limit_api).
+// Использует настройки из конфигурации (rate_limit.api.requests_per_second).
 //
 // Возвращает:
 //   - gin.HandlerFunc: rate limit middleware для API
@@ -162,8 +165,10 @@ func LoginRateLimitMiddleware() gin.HandlerFunc {
 //	api := r.Group("/api", middleware.APIRateLimitMiddleware())
 func APIRateLimitMiddleware() gin.HandlerFunc {
 	cfg := config.Get()
-	// Используем настройку из конфигурации: X запросов в секунду
-	// Формат: "100-S" означает 100 запросов в секунду
-	limit := strconv.Itoa(cfg.Security.RateLimitAPI) + "-S"
+	windowLimit := cfg.RateLimit.API.RequestsPerSecond + cfg.RateLimit.API.Burst
+	if windowLimit <= 0 {
+		windowLimit = 1
+	}
+	limit := strconv.Itoa(windowLimit) + "-S"
 	return RateLimitMiddleware(limit, "", "API rate limit exceeded. Please slow down.")
 }

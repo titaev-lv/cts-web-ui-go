@@ -63,14 +63,14 @@ Expected:
 
 ```bash
 cp services/web-ui-go/config/config.yaml services/web-ui-go/config/config.yaml.tmp
-sed -i 's/^  mode: .*/  mode: release  # debug, release, test/' services/web-ui-go/config/config.yaml
+sed -i 's/^  level: .*/  level: "info"  # info for release-like profile/' services/web-ui-go/config/config.yaml
 docker compose up -d --force-recreate web-ui
 ```
 
 ### B) Validate release startup and request flow
 
 ```bash
-docker logs --since 1m ct-system-web-ui 2>&1 | grep '"mode":"release"'
+docker logs --since 1m ct-system-web-ui 2>&1 | grep '"gin_mode":"release"'
 curl -sSI -H 'X-Request-ID: runbook-rid-release' http://127.0.0.1/login | grep -i '^X-Request-Id:'
 ```
 
@@ -79,7 +79,7 @@ curl -sSI -H 'X-Request-ID: runbook-rid-release' http://127.0.0.1/login | grep -
 ```bash
 mv services/web-ui-go/config/config.yaml.tmp services/web-ui-go/config/config.yaml
 docker compose up -d --force-recreate web-ui
-docker logs --since 1m ct-system-web-ui 2>&1 | grep '"mode":"debug"'
+docker logs --since 1m ct-system-web-ui 2>&1 | grep '"log_level":"debug"'
 ```
 
 ## Troubleshooting

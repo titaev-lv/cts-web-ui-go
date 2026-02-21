@@ -90,7 +90,7 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		// ВАЖНО: 'unsafe-inline' нужен для работы некоторых библиотек (jQuery, Bootstrap),
 		// но в идеале лучше использовать nonce или hash для inline скриптов.
 		cfg := config.Get()
-		if cfg.Server.Mode == "release" {
+		if !cfg.IsDebug() {
 			// В продакшн используем более строгую политику
 			c.Header("Content-Security-Policy",
 				"default-src 'self'; "+

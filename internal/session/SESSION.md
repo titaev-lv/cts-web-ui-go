@@ -149,10 +149,17 @@ userRepo.UpdateToken(userID, token)
 Настройки в `config/config.yaml`:
 
 ```yaml
+server:
+    tls:
+        enabled: true
+        cert_path: "pki/server/web-ui.crt"
+        key_path: "pki/server/web-ui.key"
+        ca_path: "pki/ca/ca.crt"
+
 security:
   session_secret: "your-secret-key-here"  # Секретный ключ для сессий
   session_cookie_name: "ct_session"        # Имя cookie для сессии
-  session_cookie_secure: false            # HTTPS только (true в продакшн)
+    session_cookie_secure: false            # автоматически true при server.tls.enabled=true
   session_cookie_http_only: true          # Защита от XSS
   session_cookie_same_site: "Lax"         # Политика SameSite
   session_max_age: 86400                  # Время жизни сессии (24 часа)

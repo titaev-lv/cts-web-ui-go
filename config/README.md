@@ -37,8 +37,19 @@ export CT_SECURITY_JWT_SECRET=my-secret-key
 См. `config.example.yaml` для полной структуры. Основные секции:
 
 - **server** - Настройки HTTP сервера
+   - `server.tls.enabled` включает HTTPS
+   - `server.tls.cert_path` и `server.tls.key_path` задают сертификат и ключ
+   - `server.tls.ca_path` сейчас резервный параметр (под будущую проверку цепочки/mTLS), на старте HTTP сервера пока не используется
+   - `server.timeouts.read`, `write`, `idle`, `read_header`, `shutdown_grace` управляют таймаутами сервера
+   - `server.limits.max_header_bytes` ограничивает общий размер HTTP заголовков
+   - `server.http2.*` (опционально) позволяет тюнить HTTP/2: `max_concurrent_streams`, `initial_window_size`, `max_frame_size`, `max_header_list_size`, `idle_timeout_seconds`, `max_upload_buffer_per_conn`, `max_upload_buffer_per_stream`
 - **database** - Настройки подключения к БД
 - **security** - Секретные ключи и настройки безопасности
+- `security.session_cookie_secure` автоматически считается включенным при `server.tls.enabled=true`
+- **rate_limit** - Лимиты запросов приложения
+   - `rate_limit.login.requests_per_minute`, `rate_limit.login.burst`
+   - `rate_limit.api.requests_per_second`, `rate_limit.api.burst`
+   - `security.rate_limit_login` и `security.rate_limit_api` считаются устаревшими (fallback для совместимости)
 - **logging** - Настройки логирования
 - **daemon** - Настройки демона
 - **app** - Общие настройки приложения

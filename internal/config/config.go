@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper" // Библиотека для работы с конфигурацией
@@ -14,21 +15,44 @@ import (
 // Config - главная структура конфигурации приложения.
 // Содержит все настройки, разбитые по категориям (server, database, security и т.д.)
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`   // Настройки HTTP сервера
-	Database DatabaseConfig `mapstructure:"database"` // Настройки базы данных
-	Security SecurityConfig `mapstructure:"security"` // Настройки безопасности
-	Logging  LoggingConfig  `mapstructure:"logging"`  // Настройки логирования
-	Daemon   DaemonConfig   `mapstructure:"daemon"`   // Настройки демона
-	App      AppConfig      `mapstructure:"app"`      // Общие настройки приложения
+	Server    ServerConfig    `mapstructure:"server"`     // Настройки HTTP сервера
+	Database  DatabaseConfig  `mapstructure:"database"`   // Настройки базы данных
+	Security  SecurityConfig  `mapstructure:"security"`   // Настройки безопасности
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"` // Глобальные настройки rate limiting
+	Logging   LoggingConfig   `mapstructure:"logging"`    // Настройки логирования
+	Daemon    DaemonConfig    `mapstructure:"daemon"`     // Настройки демона
+	App       AppConfig       `mapstructure:"app"`        // Общие настройки приложения
 }
 
 // ServerConfig - настройки HTTP сервера (Gin framework)
 type ServerConfig struct {
-	Port         int           `mapstructure:"port"`          // Порт, на котором будет работать сервер (например, 8443)
-	Mode         string        `mapstructure:"mode"`          // Режим работы: "debug" (разработка) или "release" (продакшн)
-	Host         string        `mapstructure:"host"`          // IP адрес для прослушивания ("0.0.0.0" = все интерфейсы)
-	ReadTimeout  time.Duration `mapstructure:"read_timeout"`  // Максимальное время чтения запроса (например, 60s)
-	WriteTimeout time.Duration `mapstructure:"write_timeout"` // Максимальное время записи ответа (например, 60s)
+	Port     int             `mapstructure:"port"`     // Порт, на котором будет работать сервер (например, 8443)
+	TLS      TLSServerConfig `mapstructure:"tls"`      // Настройки TLS для входящих HTTP соединений
+	Timeouts TimeoutConfig   `mapstructure:"timeouts"` // Таймауты HTTP сервера
+	Limits   LimitsConfig    `mapstructure:"limits"`   // Лимиты HTTP сервера
+	HTTP2    *HTTP2Config    `mapstructure:"http2"`    // Опциональные настройки HTTP/2
+}
+
+// TimeoutConfig - настройки таймаутов HTTP сервера.
+type TimeoutConfig struct {
+	Read          time.Duration `mapstructure:"read"`           // Максимальное время чтения запроса
+	Write         time.Duration `mapstructure:"write"`          // Максимальное время записи ответа
+	Idle          time.Duration `mapstructure:"idle"`           // Keep-alive timeout для idle соединений
+	ReadHeader    time.Duration `mapstructure:"read_header"`    // Максимальное время чтения заголовков
+	ShutdownGrace time.Duration `mapstructure:"shutdown_grace"` // Таймаут graceful shutdown
+}
+
+// LimitsConfig - настройки лимитов HTTP сервера.
+type LimitsConfig struct {
+	MaxHeaderBytes int `mapstructure:"max_header_bytes"` // Максимальный размер заголовков HTTP запроса в байтах
+}
+
+// TLSServerConfig - настройки TLS для HTTP сервера.
+type TLSServerConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`   // Включить HTTPS сервер
+	CertPath string `mapstructure:"cert_path"` // Путь к серверному сертификату
+	KeyPath  string `mapstructure:"key_path"`  // Путь к приватному ключу сервера
+	CAPath   string `mapstructure:"ca_path"`   // Путь к CA сертификату (зарезервировано под mTLS)
 }
 
 // DatabaseConfig - настройки подключения к базе данных
@@ -74,8 +98,26 @@ type SecurityConfig struct {
 	SessionCookieSameSite string `mapstructure:"session_cookie_same_site"` // Политика SameSite: "Strict", "Lax" или "None"
 	SessionMaxAge         int    `mapstructure:"session_max_age"`          // Время жизни сессии в секундах (86400 = 24 часа)
 	RememberMeDays        int    `mapstructure:"remember_me_days"`         // Количество дней для "Запомнить меня" (7 дней)
-	RateLimitLogin        int    `mapstructure:"rate_limit_login"`         // Максимальное количество попыток входа в минуту (защита от брутфорса)
-	RateLimitAPI          int    `mapstructure:"rate_limit_api"`           // Максимальное количество API запросов в секунду
+	RateLimitLogin        int    `mapstructure:"rate_limit_login"`         // DEPRECATED: используйте rate_limit.login.requests_per_minute
+	RateLimitAPI          int    `mapstructure:"rate_limit_api"`           // DEPRECATED: используйте rate_limit.api.requests_per_second
+}
+
+// RateLimitConfig - настройки лимитов запросов приложения.
+type RateLimitConfig struct {
+	Login LoginRateLimitConfig `mapstructure:"login"`
+	API   APIRateLimitConfig   `mapstructure:"api"`
+}
+
+// LoginRateLimitConfig - лимиты для endpoint входа.
+type LoginRateLimitConfig struct {
+	RequestsPerMinute int `mapstructure:"requests_per_minute"`
+	Burst             int `mapstructure:"burst"`
+}
+
+// APIRateLimitConfig - лимиты для API endpoint'ов.
+type APIRateLimitConfig struct {
+	RequestsPerSecond int `mapstructure:"requests_per_second"`
+	Burst             int `mapstructure:"burst"`
 }
 
 // LoggingConfig - настройки системы логирования
@@ -221,6 +263,59 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("invalid server port: %d", cfg.Server.Port)
 	}
 
+	if cfg.Server.Timeouts.Read == 0 {
+		cfg.Server.Timeouts.Read = 60 * time.Second
+	}
+	if cfg.Server.Timeouts.Write == 0 {
+		cfg.Server.Timeouts.Write = 60 * time.Second
+	}
+	if cfg.Server.Timeouts.Idle == 0 {
+		cfg.Server.Timeouts.Idle = 120 * time.Second
+	}
+	if cfg.Server.Timeouts.ReadHeader == 0 {
+		cfg.Server.Timeouts.ReadHeader = 5 * time.Second
+	}
+	if cfg.Server.Timeouts.ShutdownGrace == 0 {
+		cfg.Server.Timeouts.ShutdownGrace = 10 * time.Second
+	}
+	if cfg.Server.Limits.MaxHeaderBytes == 0 {
+		cfg.Server.Limits.MaxHeaderBytes = 1 << 20 // 1 MiB
+	}
+
+	if cfg.Server.Timeouts.Read < 0 || cfg.Server.Timeouts.Read > 24*time.Hour {
+		return fmt.Errorf("invalid server.timeouts.read: %s", cfg.Server.Timeouts.Read)
+	}
+	if cfg.Server.Timeouts.Write < 0 || cfg.Server.Timeouts.Write > 24*time.Hour {
+		return fmt.Errorf("invalid server.timeouts.write: %s", cfg.Server.Timeouts.Write)
+	}
+	if cfg.Server.Timeouts.Idle < 0 || cfg.Server.Timeouts.Idle > 24*time.Hour {
+		return fmt.Errorf("invalid server.timeouts.idle: %s", cfg.Server.Timeouts.Idle)
+	}
+	if cfg.Server.Timeouts.ReadHeader < 0 || cfg.Server.Timeouts.ReadHeader > 24*time.Hour {
+		return fmt.Errorf("invalid server.timeouts.read_header: %s", cfg.Server.Timeouts.ReadHeader)
+	}
+	if cfg.Server.Timeouts.ShutdownGrace < 0 || cfg.Server.Timeouts.ShutdownGrace > 24*time.Hour {
+		return fmt.Errorf("invalid server.timeouts.shutdown_grace: %s", cfg.Server.Timeouts.ShutdownGrace)
+	}
+	if cfg.Server.Limits.MaxHeaderBytes < 4096 || cfg.Server.Limits.MaxHeaderBytes > (16<<20) {
+		return fmt.Errorf("invalid server.limits.max_header_bytes: %d", cfg.Server.Limits.MaxHeaderBytes)
+	}
+
+	if cfg.Server.HTTP2 != nil {
+		if _, err := cfg.Server.HTTP2.Parse(); err != nil {
+			return fmt.Errorf("invalid server.http2: %w", err)
+		}
+	}
+
+	if cfg.Server.TLS.Enabled {
+		if cfg.Server.TLS.CertPath == "" {
+			return fmt.Errorf("server.tls.cert_path is required when server.tls.enabled=true")
+		}
+		if cfg.Server.TLS.KeyPath == "" {
+			return fmt.Errorf("server.tls.key_path is required when server.tls.enabled=true")
+		}
+	}
+
 	// Проверка, что указан тип базы данных
 	if cfg.Database.Engine == "" {
 		return fmt.Errorf("database engine is required")
@@ -247,6 +342,40 @@ func validate(cfg *Config) error {
 
 	if cfg.Security.SessionSecret == "" || cfg.Security.SessionSecret == "change-this-session-secret-in-production" {
 		return fmt.Errorf("session_secret must be set and changed from default")
+	}
+
+	if cfg.RateLimit.Login.RequestsPerMinute == 0 {
+		if cfg.Security.RateLimitLogin > 0 {
+			cfg.RateLimit.Login.RequestsPerMinute = cfg.Security.RateLimitLogin
+		} else {
+			cfg.RateLimit.Login.RequestsPerMinute = 5
+		}
+	}
+	if cfg.RateLimit.Login.Burst == 0 {
+		cfg.RateLimit.Login.Burst = cfg.RateLimit.Login.RequestsPerMinute
+	}
+	if cfg.RateLimit.Login.RequestsPerMinute <= 0 {
+		return fmt.Errorf("rate_limit.login.requests_per_minute must be > 0")
+	}
+	if cfg.RateLimit.Login.Burst < 0 {
+		return fmt.Errorf("rate_limit.login.burst must be >= 0")
+	}
+
+	if cfg.RateLimit.API.RequestsPerSecond == 0 {
+		if cfg.Security.RateLimitAPI > 0 {
+			cfg.RateLimit.API.RequestsPerSecond = cfg.Security.RateLimitAPI
+		} else {
+			cfg.RateLimit.API.RequestsPerSecond = 100
+		}
+	}
+	if cfg.RateLimit.API.Burst == 0 {
+		cfg.RateLimit.API.Burst = cfg.RateLimit.API.RequestsPerSecond
+	}
+	if cfg.RateLimit.API.RequestsPerSecond <= 0 {
+		return fmt.Errorf("rate_limit.api.requests_per_second must be > 0")
+	}
+	if cfg.RateLimit.API.Burst < 0 {
+		return fmt.Errorf("rate_limit.api.burst must be >= 0")
 	}
 
 	return nil
@@ -288,13 +417,13 @@ func (c *Config) GetMySQLDSN() string {
 	return dsn
 }
 
-// IsDebug проверяет, работает ли сервер в режиме отладки (debug).
-// В режиме debug выводится больше информации об ошибках и запросах.
+// IsDebug проверяет, включен ли режим отладки по уровню логирования.
+// При logging.level=debug включается debug-поведение приложения.
 //
 // Возвращает:
-//   - bool: true если mode == "debug", иначе false
+//   - bool: true если logging.level == "debug", иначе false
 func (c *Config) IsDebug() bool {
-	return c.Server.Mode == "debug"
+	return strings.EqualFold(c.Logging.Level, "debug")
 }
 
 // ConfigPath ищет директорию с конфигурацией в стандартных местах.

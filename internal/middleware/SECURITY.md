@@ -231,11 +231,18 @@ HTTP статус: **429 Too Many Requests**
 Настройки в `config.yaml`:
 
 ```yaml
+server:
+  tls:
+    enabled: true
+    cert_path: "pki/server/web-ui.crt"
+    key_path: "pki/server/web-ui.key"
+    ca_path: "pki/ca/ca.crt"
+
 security:
   csrf_secret: "your-csrf-secret"
   rate_limit_login: 5    # Попыток входа в минуту
   rate_limit_api: 100    # API запросов в секунду
-  session_cookie_secure: false  # true в продакшн с HTTPS
+  session_cookie_secure: false  # автоматически true при server.tls.enabled=true
 ```
 
 ## Полный пример использования

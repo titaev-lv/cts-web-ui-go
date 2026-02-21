@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin" // Веб-фреймворк Gin
+	"golang.org/x/net/http2"
 )
 
 // main - главная функция, которая выполняется при запуске программы.
@@ -68,12 +69,14 @@ func main() {
 	// ============================================
 	// ШАГ 3: Настройка режима работы Gin
 	// ============================================
-	// Gin может работать в трёх режимах:
-	//   - "debug": подробные логи, информация об ошибках (для разработки)
-	//   - "release": минимальные логи, оптимизация (для продакшн)
-	//   - "test": для тестирования
-	// Режим берётся из конфигурации (cfg.Server.Mode)
-	gin.SetMode(cfg.Server.Mode)
+	// Режим Gin вычисляется от logging.level:
+	//   - debug -> gin.DebugMode
+	//   - иначе -> gin.ReleaseMode
+	if cfg.IsDebug() {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	// ============================================
 	// ШАГ 4: Подключение к базе данных
@@ -98,7 +101,7 @@ func main() {
 	// Recovery middleware должен быть ПЕРВЫМ, чтобы перехватывать паники
 	// из всех последующих middleware и handlers.
 	// Используем версию с опцией показа stack trace в режиме разработки
-	showStack := cfg.Server.Mode == "debug"
+	showStack := cfg.IsDebug()
 	r.Use(middleware.RecoveryMiddlewareWithStack(showStack))
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.AuditLogMiddleware())
@@ -258,29 +261,58 @@ func main() {
 	// ============================================
 	// ШАГ 11: Запуск HTTP сервера
 	// ============================================
-	// Формируем адрес для прослушивания: "host:port"
-	// Например: "0.0.0.0:8443" означает слушать на всех интерфейсах, порт 8443
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	// Формируем адрес для прослушивания по порту
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 
 	// Логируем информацию о запуске сервера
 	logger.Info().
 		Str("address", addr).
-		Str("mode", cfg.Server.Mode).
+		Str("gin_mode", gin.Mode()).
+		Str("log_level", cfg.Logging.Level).
+		Bool("tls_enabled", cfg.Server.TLS.Enabled).
 		Msg("Starting HTTP server")
 
 	// Запускаем сервер и начинаем обрабатывать HTTP запросы
 	// r.Run() блокирует выполнение программы - сервер работает до остановки
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      r,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       cfg.Server.Timeouts.Read,
+		WriteTimeout:      cfg.Server.Timeouts.Write,
+		IdleTimeout:       cfg.Server.Timeouts.Idle,
+		ReadHeaderTimeout: cfg.Server.Timeouts.ReadHeader,
+		MaxHeaderBytes:    cfg.Server.Limits.MaxHeaderBytes,
+	}
+
+	if cfg.Server.HTTP2 != nil {
+		parsed, err := cfg.Server.HTTP2.Parse()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Invalid server.http2 config")
+		}
+
+		h2Config := &http2.Server{
+			MaxConcurrentStreams:         parsed.MaxConcurrentStreams,
+			MaxReadFrameSize:             parsed.MaxFrameSize,
+			IdleTimeout:                  time.Duration(parsed.IdleTimeoutSeconds) * time.Second,
+			MaxUploadBufferPerConnection: parsed.MaxUploadBufferPerConn,
+			MaxUploadBufferPerStream:     parsed.MaxUploadBufferPerStream,
+		}
+		if err := http2.ConfigureServer(srv, h2Config); err != nil {
+			logger.Fatal().Err(err).Msg("Failed to configure HTTP/2 server")
+		}
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var serveErr error
+		if cfg.Server.TLS.Enabled {
+			serveErr = srv.ListenAndServeTLS(cfg.Server.TLS.CertPath, cfg.Server.TLS.KeyPath)
+		} else {
+			serveErr = srv.ListenAndServe()
+		}
+
+		if serveErr != nil && serveErr != http.ErrServerClosed {
 			logger.Fatal().
-				Err(err).
+				Err(serveErr).
 				Str("address", addr).
 				Msg("Failed to start HTTP server")
 		}
@@ -292,7 +324,7 @@ func main() {
 
 	logger.Info().Msg("Shutdown signal received")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeouts.ShutdownGrace)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error().Err(err).Msg("HTTP server graceful shutdown failed")

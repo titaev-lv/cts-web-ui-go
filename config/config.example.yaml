@@ -4,10 +4,27 @@
 # Server configuration
 server:
   port: 8443
-  mode: release  # debug, release, test
-  host: "0.0.0.0"
-  read_timeout: 60s
-  write_timeout: 60s
+  tls:
+    enabled: true
+    cert_path: "pki/server/web-ui.crt"
+    key_path: "pki/server/web-ui.key"
+    ca_path: "pki/ca/ca.crt"
+  timeouts:
+    read: 60s
+    write: 60s
+    idle: 120s
+    read_header: 5s
+    shutdown_grace: 10s
+  limits:
+    max_header_bytes: 1048576
+  http2:
+    max_concurrent_streams: "250"
+    initial_window_size: "64k"
+    max_frame_size: "16k"
+    max_header_list_size: "1M"
+    idle_timeout_seconds: 120
+    max_upload_buffer_per_conn: "1M"
+    max_upload_buffer_per_stream: "1M"
 
 # Database configuration
 database:
@@ -43,8 +60,14 @@ security:
   session_cookie_same_site: "Lax"  # Strict, Lax, None
   session_max_age: 86400  # 24 hours in seconds
   remember_me_days: 7  # Days for "Remember Me" cookie
-  rate_limit_login: 5  # Login attempts per minute
-  rate_limit_api: 100  # API requests per second
+
+rate_limit:
+  login:
+    requests_per_minute: 5
+    burst: 5
+  api:
+    requests_per_second: 100
+    burst: 100
 
 # Logging configuration
 logging:

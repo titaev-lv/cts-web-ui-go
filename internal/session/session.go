@@ -24,18 +24,18 @@ type SessionManager struct {
 
 // SessionKeys - ключи для хранения данных в сессии
 const (
-	SessionKeyAuth    = "ct_auth"    // Флаг авторизации (как в PHP: $_SESSION['ct_auth'])
-	SessionKeyUserID  = "ct_user_uid" // ID пользователя (как в PHP: $_SESSION['ct_user']['uid'])
-	SessionKeyUserName = "ct_user_name" // Имя пользователя (как в PHP: $_SESSION['ct_user']['name'])
-	SessionKeyUserEmail = "ct_user_email" // Email пользователя (как в PHP: $_SESSION['ct_user']['email'])
-	SessionKeyUserGroups = "ct_user_grp" // Группы пользователя (как в PHP: $_SESSION['ct_user']['grp'])
+	SessionKeyAuth         = "ct_auth"          // Флаг авторизации (как в PHP: $_SESSION['ct_auth'])
+	SessionKeyUserID       = "ct_user_uid"      // ID пользователя (как в PHP: $_SESSION['ct_user']['uid'])
+	SessionKeyUserName     = "ct_user_name"     // Имя пользователя (как в PHP: $_SESSION['ct_user']['name'])
+	SessionKeyUserEmail    = "ct_user_email"    // Email пользователя (как в PHP: $_SESSION['ct_user']['email'])
+	SessionKeyUserGroups   = "ct_user_grp"      // Группы пользователя (как в PHP: $_SESSION['ct_user']['grp'])
 	SessionKeyUserTimezone = "ct_user_timezone" // Часовой пояс (как в PHP: $_SESSION['ct_user']['timezone'])
 )
 
 // CookieNames - имена cookies (как в PHP)
 const (
 	CookieNameLogin = "Login"   // Cookie с логином (как в PHP: $_COOKIE['Login'])
-	CookieNameToken = "CTToken"  // Cookie с токеном (как в PHP: $_COOKIE['CTToken'])
+	CookieNameToken = "CTToken" // Cookie с токеном (как в PHP: $_COOKIE['CTToken'])
 )
 
 var (
@@ -46,13 +46,14 @@ var (
 // Init инициализирует глобальный SessionManager.
 //
 // Что делает:
-//   1. Создаёт CookieStore с секретным ключом из конфигурации
-//   2. Настраивает параметры cookies (Secure, HttpOnly, SameSite)
-//   3. Создаёт экземпляр SessionManager
+//  1. Создаёт CookieStore с секретным ключом из конфигурации
+//  2. Настраивает параметры cookies (Secure, HttpOnly, SameSite)
+//  3. Создаёт экземпляр SessionManager
 //
 // Вызывается один раз при старте приложения (в main.go).
 func Init() {
 	cfg := config.Get()
+	secureCookies := cfg.Security.SessionCookieSecure || cfg.Server.TLS.Enabled
 
 	// Создаём хранилище сессий на основе cookies
 	// Секретный ключ берётся из конфигурации
@@ -60,10 +61,10 @@ func Init() {
 
 	// Настраиваем параметры cookies для безопасности
 	store.Options = &sessions.Options{
-		Path:     "/",                                    // Cookie доступен для всего сайта
-		MaxAge:   cfg.Security.SessionMaxAge,            // Время жизни сессии (по умолчанию 24 часа)
-		HttpOnly: cfg.Security.SessionCookieHTTPOnly,    // Запретить доступ через JavaScript (защита от XSS)
-		Secure:   cfg.Security.SessionCookieSecure,      // Использовать только HTTPS (в продакшн)
+		Path:     "/",                                                 // Cookie доступен для всего сайта
+		MaxAge:   cfg.Security.SessionMaxAge,                          // Время жизни сессии (по умолчанию 24 часа)
+		HttpOnly: cfg.Security.SessionCookieHTTPOnly,                  // Запретить доступ через JavaScript (защита от XSS)
+		Secure:   secureCookies,                                       // Использовать только HTTPS (авто true при server.tls.enabled)
 		SameSite: getSameSiteMode(cfg.Security.SessionCookieSameSite), // Политика SameSite
 	}
 
@@ -115,10 +116,11 @@ func GetSessionManager() *SessionManager {
 //   - error: ошибка, если не удалось получить сессию
 //
 // Использование:
-//   session, err := sm.GetSession(r, w)
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	session, err := sm.GetSession(r, w)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 func (sm *SessionManager) GetSession(r *http.Request, w http.ResponseWriter) (*sessions.Session, error) {
 	// Получаем сессию по имени из конфигурации
 	// Если сессии нет, создаётся новая
@@ -137,16 +139,17 @@ func (sm *SessionManager) GetSession(r *http.Request, w http.ResponseWriter) (*s
 //   - user: данные пользователя
 //
 // Что делает:
-//   1. Получает сессию
-//   2. Сохраняет данные пользователя в сессию (как в PHP: $_SESSION['ct_user'])
-//   3. Устанавливает флаг авторизации (как в PHP: $_SESSION['ct_auth'] = true)
-//   4. Сохраняет сессию
+//  1. Получает сессию
+//  2. Сохраняет данные пользователя в сессию (как в PHP: $_SESSION['ct_user'])
+//  3. Устанавливает флаг авторизации (как в PHP: $_SESSION['ct_auth'] = true)
+//  4. Сохраняет сессию
 //
 // Использование:
-//   err := sm.SetUser(r, w, user)
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	err := sm.SetUser(r, w, user)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *models.User) error {
 	session, err := sm.GetSession(r, w)
 	if err != nil {
@@ -183,13 +186,14 @@ func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *
 //   - error: ошибка, если произошла проблема
 //
 // Использование:
-//   user, isAuth, err := sm.GetUser(r)
-//   if err != nil {
-//       // обработка ошибки
-//   }
-//   if isAuth {
-//       // пользователь авторизован
-//   }
+//
+//	user, isAuth, err := sm.GetUser(r)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
+//	if isAuth {
+//	    // пользователь авторизован
+//	}
 func (sm *SessionManager) GetUser(r *http.Request) (*models.User, bool, error) {
 	session, err := sm.store.Get(r, sm.config.Security.SessionCookieName)
 	if err != nil {
@@ -231,17 +235,20 @@ func (sm *SessionManager) GetUser(r *http.Request) (*models.User, bool, error) {
 //   - w: HTTP ответ
 //
 // Что делает:
-//   1. Получает сессию
-//   2. Очищает все значения сессии
-//   3. Удаляет cookies "Remember Me" (Login и CTToken)
-//   4. Сохраняет сессию
+//  1. Получает сессию
+//  2. Очищает все значения сессии
+//  3. Удаляет cookies "Remember Me" (Login и CTToken)
+//  4. Сохраняет сессию
 //
 // Использование:
-//   err := sm.ClearUser(r, w)
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	err := sm.ClearUser(r, w)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) error {
+	secureCookies := sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled
+
 	session, err := sm.GetSession(r, w)
 	if err != nil {
 		return err
@@ -258,7 +265,7 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   sm.config.Security.SessionCookieSecure,
+		Secure:   secureCookies,
 		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
 	})
 
@@ -268,7 +275,7 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   sm.config.Security.SessionCookieSecure,
+		Secure:   secureCookies,
 		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
 	})
 
@@ -288,13 +295,16 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 //   - token: токен из БД
 //
 // Что делает:
-//   1. Устанавливает cookie "Login" с логином
-//   2. Устанавливает cookie "CTToken" с токеном
-//   3. Срок действия: RememberMeDays дней (по умолчанию 7 дней)
+//  1. Устанавливает cookie "Login" с логином
+//  2. Устанавливает cookie "CTToken" с токеном
+//  3. Срок действия: RememberMeDays дней (по умолчанию 7 дней)
 //
 // Использование:
-//   sm.SetRememberMeCookies(w, "admin", "abc123...")
+//
+//	sm.SetRememberMeCookies(w, "admin", "abc123...")
 func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, token string) {
+	secureCookies := sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled
+
 	// Вычисляем время истечения (как в PHP: +7 дней)
 	expires := time.Now().Add(time.Duration(sm.config.Security.RememberMeDays) * 24 * time.Hour)
 
@@ -305,7 +315,7 @@ func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, tok
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true, // Защита от XSS
-		Secure:   sm.config.Security.SessionCookieSecure,
+		Secure:   secureCookies,
 		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
 	})
 
@@ -316,7 +326,7 @@ func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, tok
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true, // Защита от XSS
-		Secure:   sm.config.Security.SessionCookieSecure,
+		Secure:   secureCookies,
 		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
 	})
 }
@@ -328,10 +338,10 @@ func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, tok
 //   - w: HTTP ответ
 //
 // Что делает:
-//   1. Читает cookies "Login" и "CTToken"
-//   2. Проверяет токен в БД (как в PHP: WHERE LOGIN = ? AND TOKEN = ?)
-//   3. Если токен валиден, восстанавливает сессию
-//   4. Загружает группы пользователя
+//  1. Читает cookies "Login" и "CTToken"
+//  2. Проверяет токен в БД (как в PHP: WHERE LOGIN = ? AND TOKEN = ?)
+//  3. Если токен валиден, восстанавливает сессию
+//  4. Загружает группы пользователя
 //
 // Возвращает:
 //   - *models.User: данные пользователя (если токен валиден)
@@ -339,13 +349,14 @@ func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, tok
 //   - error: ошибка, если произошла проблема
 //
 // Использование:
-//   user, restored, err := sm.RestoreUserFromCookies(r, w)
-//   if err != nil {
-//       // обработка ошибки
-//   }
-//   if restored {
-//       // пользователь восстановлен из cookies
-//   }
+//
+//	user, restored, err := sm.RestoreUserFromCookies(r, w)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
+//	if restored {
+//	    // пользователь восстановлен из cookies
+//	}
 func (sm *SessionManager) RestoreUserFromCookies(r *http.Request, w http.ResponseWriter) (*models.User, bool, error) {
 	// Читаем cookies (как в PHP: isset($_COOKIE['Login']) && isset($_COOKIE['CTToken']))
 	loginCookie, err := r.Cookie(CookieNameLogin)
@@ -423,14 +434,16 @@ func (sm *SessionManager) RestoreUserFromCookies(r *http.Request, w http.Respons
 //   - error: ошибка, если не удалось сгенерировать токен
 //
 // Использование:
-//   token, err := sm.GenerateRememberMeToken()
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	token, err := sm.GenerateRememberMeToken()
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 //
 // Примечание:
-//   Генерирует токен длиной 32 байта (256 бит) в hex формате.
-//   Это безопаснее, чем в PHP (где используется mt_rand(2, 100) байт).
+//
+//	Генерирует токен длиной 32 байта (256 бит) в hex формате.
+//	Это безопаснее, чем в PHP (где используется mt_rand(2, 100) байт).
 func (sm *SessionManager) GenerateRememberMeToken() (string, error) {
 	// Генерируем случайные байты (как в PHP: openssl_random_pseudo_bytes)
 	// В PHP используется длина от 2 до 100 байт (mt_rand(2, 100))
@@ -447,4 +460,3 @@ func (sm *SessionManager) GenerateRememberMeToken() (string, error) {
 
 	return token, nil
 }
-
