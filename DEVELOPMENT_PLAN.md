@@ -355,11 +355,11 @@ logging:
     level: "info"            # info, debug, warn, error
     format: "json"           # json или text
     output: "both"           # stdout, file, both
-    file: "/app/logs/error.log"
-    access_file: "/app/logs/access.log"
-    max_size: 100             # MB
+    error_path: "/app/logs/error.log"
+    access_path: "/app/logs/access.log"
+    max_size_mb: 100          # MB
     max_backups: 5            # старые файлы
-    max_age: 30               # дни
+    max_age_days: 30          # дни
     compress: true            # gzip архивирование
 ```
 
