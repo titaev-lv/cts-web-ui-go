@@ -6,7 +6,7 @@ server:
   port: 8443
   tls:
     enabled: true
-    cert_path: "pki/server/web-ui.crt"
+    cert_path: "pki/server/web-ui.fullchain.crt"
     key_path: "pki/server/web-ui.key"
     ca_path: "pki/ca/ca.crt"
   timeouts:
