@@ -331,7 +331,7 @@ func handleAppError(c *gin.Context, err *AppError) {
 	}
 
 	// Добавляем детали, если они есть
-	if err.Details != nil && len(err.Details) > 0 {
+	if len(err.Details) > 0 {
 		response["details"] = err.Details
 	}
 
