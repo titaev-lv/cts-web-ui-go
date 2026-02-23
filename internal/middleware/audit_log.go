@@ -25,7 +25,7 @@ func AuditLogMiddleware() gin.HandlerFunc {
 		}
 
 		method := c.Request.Method
-		clientIP := c.ClientIP()
+		meta := ExtractRequestMeta(c)
 		userAgent := c.Request.UserAgent()
 
 		c.Next()
@@ -63,7 +63,12 @@ func AuditLogMiddleware() gin.HandlerFunc {
 			"path", path,
 			"status", status,
 			"result", result,
-			"ip", clientIP,
+			"ip", meta.RealIP,
+			"real_ip", meta.RealIP,
+			"remote_addr", meta.RemoteAddr,
+			"effective_scheme", meta.EffectiveScheme,
+			"effective_host", meta.EffectiveHost,
+			"trusted_proxy", meta.TrustedProxy,
 			"user_agent", userAgent,
 			"request_id", requestID,
 			"user_id", userID,

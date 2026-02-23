@@ -1,0 +1,107 @@
+# CT-System Configuration (Direct mode without nginx)
+# Copy this file to config.direct.yaml for direct profile usage
+
+# Server configuration
+server:
+  port: 8080
+  tls:
+    enabled: false
+    cert_path: "pki/server/web-ui.fullchain.crt"
+    key_path: "pki/server/web-ui.key"
+    ca_path: "pki/ca/ca.crt"
+  timeouts:
+    read: 60s
+    write: 60s
+    idle: 120s
+    read_header: 5s
+    shutdown_grace: 10s
+  limits:
+    max_header_bytes: 1048576
+  http2:
+    max_concurrent_streams: "250"
+    initial_window_size: "64k"
+    max_frame_size: "16k"
+    max_header_list_size: "1M"
+    idle_timeout_seconds: 120
+    max_upload_buffer_per_conn: "1M"
+    max_upload_buffer_per_stream: "1M"
+
+# Reverse proxy configuration
+proxy:
+  enabled: false
+  trust_forward_headers: false
+  trusted_hops: 1
+  trusted_cidrs:
+    - "127.0.0.1/32"
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+  static_via_nginx: false
+
+# Database configuration
+database:
+  engine: "mysql"
+  mysql:
+    host: "ct-system-mysql"
+    port: 3306
+    user: "root"
+    password: "root"
+    database: "ct_system"
+    charset: "utf8mb4"
+    parse_time: true
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 300s
+    conn_max_idle_time: 60s
+
+# Security configuration
+security:
+  jwt_secret: "dev-secret-key-change-in-production"
+  session_secret: "dev-session-secret-change-in-production"
+  csrf_secret: "dev-csrf-secret-change-in-production"
+  bcrypt_cost: 10
+  session_cookie_name: "ct_session"
+  session_cookie_secure: false
+  session_cookie_http_only: true
+  session_cookie_same_site: "Lax"
+  session_max_age: 86400
+  remember_me_days: 7
+
+rate_limit:
+  login:
+    requests_per_minute: 5
+    burst: 5
+  api:
+    requests_per_second: 100
+    burst: 100
+
+# Logging configuration
+logging:
+  level: "debug"
+  format: "json"
+  output: "both"
+  error_path: "/app/logs/error.log"
+  max_size_mb: 100
+  max_backups: 5
+  max_age_days: 30
+  compress: true
+  access_path: "/app/logs/access.log"
+  access_max_size_mb: 50
+  access_max_backups: 10
+  access_max_age_days: 7
+  audit_path: "/app/logs/audit.log"
+  audit_max_size_mb: 100
+  audit_max_backups: 5
+  audit_max_age_days: 30
+
+# Daemon configuration
+daemon:
+  path: "/home/trader/trader"
+  check_interval: 5s
+
+# Application settings
+app:
+  name: "CT-System"
+  version: "1.0.0"
+  timezone: "UTC"
+  default_language: "en"

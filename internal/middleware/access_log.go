@@ -19,7 +19,7 @@ func AccessLogMiddleware() gin.HandlerFunc {
 		}
 
 		method := c.Request.Method
-		clientIP := c.ClientIP()
+		meta := ExtractRequestMeta(c)
 		userAgent := c.Request.UserAgent()
 
 		c.Next()
@@ -41,7 +41,12 @@ func AccessLogMiddleware() gin.HandlerFunc {
 			"path", path,
 			"status", status,
 			"latency_ms", latencyMS,
-			"ip", clientIP,
+			"ip", meta.RealIP,
+			"real_ip", meta.RealIP,
+			"remote_addr", meta.RemoteAddr,
+			"effective_scheme", meta.EffectiveScheme,
+			"effective_host", meta.EffectiveHost,
+			"trusted_proxy", meta.TrustedProxy,
 			"user_agent", userAgent,
 			"user_id", userID,
 		}

@@ -147,6 +147,11 @@ func main() {
 	// Регистрируем маршруты (URL пути):
 	//   GET /          -> главная страница (userController.Home)
 	//   GET /login     -> страница входа (userController.ShowLoginPage)
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
 	r.GET("/", userController.Home)
 	r.GET("/login", userController.ShowLoginPage)
 

@@ -24,6 +24,8 @@ logs/
 php/
 
 # Config files with secrets
+config/config.proxy.yaml
+config/config.direct.yaml
 config/config.yaml
 config/config.local.yaml
 
