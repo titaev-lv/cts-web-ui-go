@@ -23,7 +23,7 @@
    
    Укажите свои значения:
    - Параметры подключения к БД
-   - Секретные ключи (JWT, Session, CSRF)
+   - Секретные ключи (Session, CSRF)
    - Настройки сервера
 
 3. Запустите приложение - конфигурация загрузится автоматически.
@@ -36,7 +36,7 @@
 # Примеры
 export CT_SERVER_PORT=8080
 export CT_DATABASE_MYSQL_HOST=mysql.example.com
-export CT_SECURITY_JWT_SECRET=my-secret-key
+export CT_SECURITY_SESSION_SECRET=my-session-secret
 ```
 
 ## Структура конфигурации

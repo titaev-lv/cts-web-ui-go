@@ -57,7 +57,6 @@ database:
 
 # Security configuration
 security:
-  jwt_secret: "dev-secret-key-change-in-production"
   session_secret: "dev-session-secret-change-in-production"
   csrf_secret: "dev-csrf-secret-change-in-production"
   bcrypt_cost: 10

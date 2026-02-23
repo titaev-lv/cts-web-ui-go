@@ -99,7 +99,6 @@ type OracleConfig struct {
 
 // SecurityConfig - настройки безопасности приложения
 type SecurityConfig struct {
-	JWTSecret             string `mapstructure:"jwt_secret"`               // Секретный ключ для подписи JWT токенов (должен быть уникальным!)
 	SessionSecret         string `mapstructure:"session_secret"`           // Секретный ключ для сессий (должен быть уникальным!)
 	CSRFSecret            string `mapstructure:"csrf_secret"`              // Секретный ключ для CSRF защиты (должен быть уникальным!)
 	BcryptCost            int    `mapstructure:"bcrypt_cost"`              // Сложность хеширования паролей (10 = хороший баланс скорости/безопасности)
@@ -365,10 +364,6 @@ func validate(cfg *Config) error {
 
 	// Проверка, что секретные ключи изменены с дефолтных значений
 	// Это важно для безопасности - нельзя использовать дефолтные ключи в продакшн
-	if cfg.Security.JWTSecret == "" || cfg.Security.JWTSecret == "change-this-secret-key-in-production" {
-		return fmt.Errorf("jwt_secret must be set and changed from default")
-	}
-
 	if cfg.Security.SessionSecret == "" || cfg.Security.SessionSecret == "change-this-session-secret-in-production" {
 		return fmt.Errorf("session_secret must be set and changed from default")
 	}

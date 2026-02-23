@@ -34,7 +34,6 @@ func TestValidateTLSModes(t *testing.T) {
 					},
 				},
 				Security: SecurityConfig{
-					JWTSecret:     "test-jwt-secret",
 					SessionSecret: "test-session-secret",
 				},
 			},
@@ -67,7 +66,6 @@ func TestValidateTLSModes(t *testing.T) {
 					},
 				},
 				Security: SecurityConfig{
-					JWTSecret:     "test-jwt-secret",
 					SessionSecret: "test-session-secret",
 				},
 			},
@@ -99,7 +97,6 @@ func TestValidateTLSModes(t *testing.T) {
 					},
 				},
 				Security: SecurityConfig{
-					JWTSecret:     "test-jwt-secret",
 					SessionSecret: "test-session-secret",
 				},
 			},
@@ -131,7 +128,6 @@ func TestValidateTLSModes(t *testing.T) {
 					},
 				},
 				Security: SecurityConfig{
-					JWTSecret:     "test-jwt-secret",
 					SessionSecret: "test-session-secret",
 				},
 			},
@@ -159,7 +155,7 @@ func TestValidateTimeoutDefaults(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 		RateLimit: RateLimitConfig{
 			Login: LoginRateLimitConfig{RequestsPerMinute: 5, Burst: 5},
 			API:   APIRateLimitConfig{RequestsPerSecond: 100, Burst: 100},
@@ -191,7 +187,7 @@ func TestValidateTimeoutBounds(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 	}
 
 	if err := validate(cfg); err == nil {
@@ -212,7 +208,7 @@ func TestValidateMaxHeaderBytesBounds(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 	}
 
 	if err := validate(cfg); err == nil {
@@ -233,7 +229,7 @@ func TestValidateHTTP2Invalid(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 	}
 
 	if err := validate(cfg); err == nil {
@@ -252,7 +248,6 @@ func TestValidateRateLimitFallbackFromSecurity(t *testing.T) {
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
 		Security: SecurityConfig{
-			JWTSecret:      "test-jwt-secret",
 			SessionSecret:  "test-session-secret",
 			RateLimitLogin: 7,
 			RateLimitAPI:   55,
@@ -280,7 +275,7 @@ func TestValidateProxyDefaults(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 	}
 
 	if err := validate(cfg); err != nil {
@@ -305,7 +300,7 @@ func TestValidateProxyTrustedHopsBounds(t *testing.T) {
 				Engine: "mysql",
 				MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 			},
-			Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+			Security: SecurityConfig{SessionSecret: "test-session-secret"},
 		}
 
 		err := validate(cfg)
@@ -333,7 +328,7 @@ func TestValidateProxyCIDR(t *testing.T) {
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
 		},
-		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
 	}
 
 	if err := validate(cfg); err == nil {
