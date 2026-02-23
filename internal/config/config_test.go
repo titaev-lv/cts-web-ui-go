@@ -271,6 +271,10 @@ func TestValidateProxyDefaults(t *testing.T) {
 			Port: 8443,
 			TLS:  TLSServerConfig{Enabled: false},
 		},
+		Proxy: ProxyConfig{
+			Enabled:             true,
+			TrustForwardHeaders: true,
+		},
 		Database: DatabaseConfig{
 			Engine: "mysql",
 			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
@@ -295,7 +299,7 @@ func TestValidateProxyTrustedHopsBounds(t *testing.T) {
 	for _, hops := range tests {
 		cfg := &Config{
 			Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
-			Proxy:  ProxyConfig{TrustedHops: hops, TrustedCIDRs: []string{"127.0.0.1/32"}},
+			Proxy:  ProxyConfig{Enabled: true, TrustedHops: hops, TrustedCIDRs: []string{"127.0.0.1/32"}},
 			Database: DatabaseConfig{
 				Engine: "mysql",
 				MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
@@ -321,8 +325,10 @@ func TestValidateProxyCIDR(t *testing.T) {
 	cfg := &Config{
 		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
 		Proxy: ProxyConfig{
-			TrustedHops:  1,
-			TrustedCIDRs: []string{"127.0.0.1/32", "not-a-cidr"},
+			Enabled:             true,
+			TrustForwardHeaders: true,
+			TrustedHops:         1,
+			TrustedCIDRs:        []string{"127.0.0.1/32", "not-a-cidr"},
 		},
 		Database: DatabaseConfig{
 			Engine: "mysql",
@@ -333,5 +339,46 @@ func TestValidateProxyCIDR(t *testing.T) {
 
 	if err := validate(cfg); err == nil {
 		t.Fatal("expected validate() to fail for invalid proxy.trusted_cidrs entry")
+	}
+}
+
+func TestValidateProxyCIDRSkippedWhenProxyDisabled(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
+		Proxy: ProxyConfig{
+			Enabled:             false,
+			TrustForwardHeaders: true,
+			TrustedHops:         1,
+			TrustedCIDRs:        []string{"not-a-cidr"},
+		},
+		Database: DatabaseConfig{
+			Engine: "mysql",
+			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+		},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
+	}
+
+	if err := validate(cfg); err != nil {
+		t.Fatalf("expected validate() to skip proxy.trusted_cidrs when proxy.enabled=false, got error: %v", err)
+	}
+}
+
+func TestValidateProxyTrustedHopsSkippedWhenProxyDisabled(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
+		Proxy: ProxyConfig{
+			Enabled:      false,
+			TrustedHops:  99,
+			TrustedCIDRs: []string{"127.0.0.1/32"},
+		},
+		Database: DatabaseConfig{
+			Engine: "mysql",
+			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+		},
+		Security: SecurityConfig{SessionSecret: "test-session-secret"},
+	}
+
+	if err := validate(cfg); err != nil {
+		t.Fatalf("expected validate() to skip proxy.trusted_hops when proxy.enabled=false, got error: %v", err)
 	}
 }

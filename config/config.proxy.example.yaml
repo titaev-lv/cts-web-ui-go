@@ -3,12 +3,9 @@
 
 # Server configuration
 server:
-  port: 8080  # В proxy mode это внутренний upstream-порт web-ui (внешний порт обслуживает nginx)
+  port: 8080
   tls:
-    enabled: false  # В proxy mode обычно false: TLS терминирует nginx
-    cert_path: "pki/server/web-ui.fullchain.crt"  # ⚠ Не используется, если tls.enabled=false в proxy mode
-    key_path: "pki/server/web-ui.key"  # ⚠ Не используется, если tls.enabled=false в proxy mode
-    ca_path: "pki/ca/ca.crt"  # ⚠ Для входящего HTTPS web-ui не используется (reserved)
+    enabled: false
   timeouts:
     read: 60s
     write: 60s
@@ -17,33 +14,22 @@ server:
     shutdown_grace: 10s
   limits:
     max_header_bytes: 1048576
-  http2:
-    # ⚠ В proxy mode не влияет на внешний HTTP/2 (его обслуживает nginx на edge)
-    max_concurrent_streams: "250"
-    initial_window_size: "64k"
-    max_frame_size: "16k"
-    max_header_list_size: "1M"
-    idle_timeout_seconds: 120
-    max_upload_buffer_per_conn: "1M"
-    max_upload_buffer_per_stream: "1M"
 
-# Reverse proxy configuration (точка входа: nginx -> web-ui)
+# Reverse proxy configuration
 proxy:
-  enabled: true  # Включает proxy-aware режим приложения
-  trust_forward_headers: true  # Доверять X-Forwarded-* только от trusted источников
-  trusted_hops: 1
+  enabled: true
+  trust_forward_headers: true
+  trusted_hops: 1 
   trusted_cidrs:
-    - "127.0.0.1/32"  # localhost
-    - "10.0.0.0/8"  # private network
-    - "172.16.0.0/12"  # docker bridge networks
-    - "192.168.0.0/16"  # private network
-  static_via_nginx: true  # статику отдает nginx, backend static routes отключены
+    - "127.0.0.1/32"
+    - "172.16.0.0/12"
+  static_via_nginx: true
 
 # Database configuration
 database:
   engine: "mysql"
   mysql:
-    host: "ct-system-mysql"  # Docker container name
+    host: "ct-system-mysql"
     port: 3306
     user: "root"
     password: "root"

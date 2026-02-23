@@ -284,16 +284,19 @@ func main() {
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 
 	// Логируем информацию о запуске сервера
-	logger.Info().
+	startupLog := logger.Info().
 		Str("address", addr).
 		Str("gin_mode", gin.Mode()).
 		Str("log_level", cfg.Logging.Level).
 		Bool("tls_enabled", cfg.Server.TLS.Enabled).
-		Bool("proxy_enabled", cfg.Proxy.Enabled).
-		Bool("proxy_trust_forward_headers", cfg.Proxy.TrustForwardHeaders).
-		Int("proxy_trusted_hops", cfg.Proxy.TrustedHops).
-		Bool("proxy_static_via_nginx", cfg.Proxy.StaticViaNginx).
-		Msg("Starting HTTP server")
+		Bool("proxy_enabled", cfg.Proxy.Enabled)
+	if cfg.Proxy.Enabled {
+		startupLog = startupLog.
+			Bool("proxy_trust_forward_headers", cfg.Proxy.TrustForwardHeaders).
+			Int("proxy_trusted_hops", cfg.Proxy.TrustedHops).
+			Bool("proxy_static_via_nginx", cfg.Proxy.StaticViaNginx)
+	}
+	startupLog.Msg("Starting HTTP server")
 
 	// Запускаем сервер и начинаем обрабатывать HTTP запросы
 	// r.Run() блокирует выполнение программы - сервер работает до остановки

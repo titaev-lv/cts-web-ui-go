@@ -317,21 +317,25 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	if cfg.Proxy.TrustedHops == 0 {
-		cfg.Proxy.TrustedHops = 1
-	}
-	if cfg.Proxy.TrustedCIDRs == nil {
-		cfg.Proxy.TrustedCIDRs = []string{"127.0.0.1/32", "10.0.0.0/8"}
-	}
-	if cfg.Proxy.TrustedHops < 1 || cfg.Proxy.TrustedHops > 5 {
-		return fmt.Errorf("proxy.trusted_hops must be between 1 and 5")
-	}
-	for _, cidr := range cfg.Proxy.TrustedCIDRs {
-		if strings.TrimSpace(cidr) == "" {
-			return fmt.Errorf("proxy.trusted_cidrs must not contain empty values")
+	if cfg.Proxy.Enabled {
+		if cfg.Proxy.TrustedHops == 0 {
+			cfg.Proxy.TrustedHops = 1
 		}
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return fmt.Errorf("invalid proxy.trusted_cidrs entry %q: %w", cidr, err)
+		if cfg.Proxy.TrustedHops < 1 || cfg.Proxy.TrustedHops > 5 {
+			return fmt.Errorf("proxy.trusted_hops must be between 1 and 5")
+		}
+	}
+	if cfg.Proxy.Enabled && cfg.Proxy.TrustForwardHeaders {
+		if cfg.Proxy.TrustedCIDRs == nil {
+			cfg.Proxy.TrustedCIDRs = []string{"127.0.0.1/32", "10.0.0.0/8"}
+		}
+		for _, cidr := range cfg.Proxy.TrustedCIDRs {
+			if strings.TrimSpace(cidr) == "" {
+				return fmt.Errorf("proxy.trusted_cidrs must not contain empty values")
+			}
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return fmt.Errorf("invalid proxy.trusted_cidrs entry %q: %w", cidr, err)
+			}
 		}
 	}
 

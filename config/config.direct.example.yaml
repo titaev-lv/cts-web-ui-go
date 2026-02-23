@@ -29,14 +29,6 @@ server:
 # Reverse proxy configuration
 proxy:
   enabled: false
-  trust_forward_headers: false
-  trusted_hops: 1
-  trusted_cidrs:
-    - "127.0.0.1/32"
-    - "10.0.0.0/8"
-    - "172.16.0.0/12"
-    - "192.168.0.0/16"
-  static_via_nginx: false
 
 # Database configuration
 database:

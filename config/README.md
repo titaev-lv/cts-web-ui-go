@@ -20,11 +20,11 @@
 2. Отредактируйте файлы под нужный профиль:
    - `config/config.proxy.yaml` для `proxy`
    - `config/config.direct.yaml` для `direct`
-   
+
    Укажите свои значения:
    - Параметры подключения к БД
    - Секретные ключи (Session, CSRF)
-   - Настройки сервера
+   - Режим запуска (`proxy` или `direct`)
 
 3. Запустите приложение - конфигурация загрузится автоматически.
 
@@ -39,9 +39,22 @@ export CT_DATABASE_MYSQL_HOST=mysql.example.com
 export CT_SECURITY_SESSION_SECRET=my-session-secret
 ```
 
-## Структура конфигурации
+## Минимальные примеры и дефолты
 
-См. `config.proxy.example.yaml` и `config.direct.example.yaml` для полной структуры. Основные секции:
+`config.proxy.example.yaml` и `config.direct.example.yaml` теперь содержат минимально необходимый набор параметров для запуска.
+
+Часть полей намеренно опущена и берётся из дефолтов в коде (см. `internal/config/config.go` и `internal/logger/logger.go`):
+- `server.timeouts.*`
+- `server.limits.max_header_bytes`
+- `server.http2.*`
+- `rate_limit.*.burst`
+- расширенные настройки ротации/пути `logging.*` (кроме `error_path`)
+
+Полезно знать:
+- `server.tls.cert_path` и `server.tls.key_path` обязательны только при `server.tls.enabled=true`.
+- Для proxy-режима оставляйте `proxy.trust_forward_headers=true` и `proxy.trusted_cidrs` с сетью вашего nginx.
+
+Основные секции:
 
 - **server** - Настройки HTTP сервера
    - `server.tls.enabled` включает HTTPS

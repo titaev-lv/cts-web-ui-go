@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"ctweb/internal/config"
 	"time"
 
 	"ctweb/internal/logger"
@@ -27,6 +28,7 @@ func AccessLogMiddleware() gin.HandlerFunc {
 		status := c.Writer.Status()
 		latency := time.Since(start)
 		latencyMS := float64(latency.Microseconds()) / 1000.0
+		cfg := config.Get()
 
 		var userID any = nil
 		if user, ok := GetUserFromContext(c); ok {
@@ -42,13 +44,17 @@ func AccessLogMiddleware() gin.HandlerFunc {
 			"status", status,
 			"latency_ms", latencyMS,
 			"ip", meta.RealIP,
-			"real_ip", meta.RealIP,
-			"remote_addr", meta.RemoteAddr,
-			"effective_scheme", meta.EffectiveScheme,
-			"effective_host", meta.EffectiveHost,
-			"trusted_proxy", meta.TrustedProxy,
 			"user_agent", userAgent,
 			"user_id", userID,
+		}
+		if cfg.Proxy.Enabled {
+			fields = append(fields,
+				"real_ip", meta.RealIP,
+				"remote_addr", meta.RemoteAddr,
+				"effective_scheme", meta.EffectiveScheme,
+				"effective_host", meta.EffectiveHost,
+				"trusted_proxy", meta.TrustedProxy,
+			)
 		}
 
 		log.Info("HTTP access", fields...)
