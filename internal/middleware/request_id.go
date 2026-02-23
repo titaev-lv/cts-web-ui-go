@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -16,6 +19,8 @@ const (
 	ContextKeyRequestStart = "request_start"
 	ContextKeyLatencyParts = "latency_parts_ms"
 )
+
+type contextRequestIDKey struct{}
 
 func RequestIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -94,6 +99,50 @@ func GetLatencyParts(c *gin.Context) (map[string]float64, bool) {
 		return nil, false
 	}
 	return parts, true
+}
+
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, contextRequestIDKey{}, requestID)
+}
+
+func RequestIDFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	requestID, ok := ctx.Value(contextRequestIDKey{}).(string)
+	if !ok {
+		return "", false
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return "", false
+	}
+	return requestID, true
+}
+
+func SetRequestIDHeaderFromContext(req *http.Request) {
+	if req == nil {
+		return
+	}
+	if requestID, ok := RequestIDFromContext(req.Context()); ok {
+		req.Header.Set(RequestIDHeader, requestID)
+	}
+}
+
+func NewRequestWithRequestID(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	SetRequestIDHeaderFromContext(req)
+	return req, nil
 }
 
 func generateRequestID() string {

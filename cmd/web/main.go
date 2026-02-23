@@ -95,6 +95,18 @@ func main() {
 	// Мы используем свой Recovery middleware с интеграцией в нашу систему логирования
 	r := gin.New()
 
+	if cfg.Proxy.Enabled && cfg.Proxy.TrustForwardHeaders {
+		if err := r.SetTrustedProxies(cfg.Proxy.TrustedCIDRs); err != nil {
+			logger.Fatal().Err(err).Msg("Invalid proxy.trusted_cidrs")
+		}
+		r.ForwardedByClientIP = true
+	} else {
+		if err := r.SetTrustedProxies(nil); err != nil {
+			logger.Fatal().Err(err).Msg("Failed to disable trusted proxies")
+		}
+		r.ForwardedByClientIP = false
+	}
+
 	// ============================================
 	// ШАГ 5.1: Recovery Middleware (обработка паник)
 	// ============================================
@@ -224,7 +236,9 @@ func main() {
 	// ============================================
 	// Статические файлы (CSS, JS, изображения) будут доступны по пути /assets/*
 	// Например: /assets/stylesheets/theme.css
-	r.Static("/assets", "web/static")
+	if !(cfg.Proxy.Enabled && cfg.Proxy.StaticViaNginx) {
+		r.Static("/assets", "web/static")
+	}
 
 	// ============================================
 	// ШАГ 10.0.5: Favicon (браузеры запрашивают автоматически)
@@ -270,6 +284,10 @@ func main() {
 		Str("gin_mode", gin.Mode()).
 		Str("log_level", cfg.Logging.Level).
 		Bool("tls_enabled", cfg.Server.TLS.Enabled).
+		Bool("proxy_enabled", cfg.Proxy.Enabled).
+		Bool("proxy_trust_forward_headers", cfg.Proxy.TrustForwardHeaders).
+		Int("proxy_trusted_hops", cfg.Proxy.TrustedHops).
+		Bool("proxy_static_via_nginx", cfg.Proxy.StaticViaNginx).
 		Msg("Starting HTTP server")
 
 	// Запускаем сервер и начинаем обрабатывать HTTP запросы

@@ -269,3 +269,74 @@ func TestValidateRateLimitFallbackFromSecurity(t *testing.T) {
 		t.Fatalf("expected api fallback=55, got %d", cfg.RateLimit.API.RequestsPerSecond)
 	}
 }
+
+func TestValidateProxyDefaults(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{
+			Port: 8443,
+			TLS:  TLSServerConfig{Enabled: false},
+		},
+		Database: DatabaseConfig{
+			Engine: "mysql",
+			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+		},
+		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+	}
+
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate() error = %v", err)
+	}
+
+	if cfg.Proxy.TrustedHops != 1 {
+		t.Fatalf("expected proxy.trusted_hops default=1, got %d", cfg.Proxy.TrustedHops)
+	}
+	if len(cfg.Proxy.TrustedCIDRs) != 2 {
+		t.Fatalf("expected default trusted CIDRs, got %+v", cfg.Proxy.TrustedCIDRs)
+	}
+}
+
+func TestValidateProxyTrustedHopsBounds(t *testing.T) {
+	tests := []int{0, -1, 6}
+	for _, hops := range tests {
+		cfg := &Config{
+			Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
+			Proxy:  ProxyConfig{TrustedHops: hops, TrustedCIDRs: []string{"127.0.0.1/32"}},
+			Database: DatabaseConfig{
+				Engine: "mysql",
+				MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+			},
+			Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+		}
+
+		err := validate(cfg)
+		if hops == 0 {
+			if err != nil {
+				t.Fatalf("trusted_hops=0 should default to 1, got error: %v", err)
+			}
+			continue
+		}
+
+		if err == nil {
+			t.Fatalf("expected error for trusted_hops=%d", hops)
+		}
+	}
+}
+
+func TestValidateProxyCIDR(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
+		Proxy: ProxyConfig{
+			TrustedHops:  1,
+			TrustedCIDRs: []string{"127.0.0.1/32", "not-a-cidr"},
+		},
+		Database: DatabaseConfig{
+			Engine: "mysql",
+			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+		},
+		Security: SecurityConfig{JWTSecret: "test-jwt-secret", SessionSecret: "test-session-secret"},
+	}
+
+	if err := validate(cfg); err == nil {
+		t.Fatal("expected validate() to fail for invalid proxy.trusted_cidrs entry")
+	}
+}

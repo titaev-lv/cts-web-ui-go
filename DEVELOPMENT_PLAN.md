@@ -171,6 +171,32 @@
 - В access-логи добавлен `user_id` (если пользователь авторизован).
 - Добавлен `request_id` (`X-Request-ID`) с пробросом в context, response header и access/error/recovery логи.
 
+### 🔗 Policy: Downstream `X-Request-ID` propagation (обязательно)
+
+Для **любых новых исходящих HTTP-запросов** из `web-ui-go` обязательно использовать helper:
+
+- `middleware.NewRequestWithRequestID(ctx, method, url, body)`
+
+Допустимый альтернативный вариант (если request создается вручную):
+
+- `middleware.SetRequestIDHeaderFromContext(req)`
+
+Цель:
+- не терять корреляцию `request_id` на пути `client -> nginx -> web-ui-go -> downstream`;
+- упростить трассировку инцидентов и аудит.
+
+Минимальный шаблон:
+
+```go
+req, err := middleware.NewRequestWithRequestID(c.Request.Context(), http.MethodGet, targetURL, nil)
+if err != nil {
+    // handle error
+}
+resp, err := http.DefaultClient.Do(req)
+```
+
+Проверка: в `internal/middleware/request_id_test.go` есть тесты на перенос `X-Request-ID` в исходящий `http.Request`.
+
 ### 🔧 Что осталось (актуальный scope)
 
 #### Фаза 1: Полировка структуры логов (0.5-1 день)

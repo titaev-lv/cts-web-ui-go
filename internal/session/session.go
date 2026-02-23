@@ -8,7 +8,9 @@ import (
 	"ctweb/internal/repositories"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -53,7 +55,7 @@ var (
 // Вызывается один раз при старте приложения (в main.go).
 func Init() {
 	cfg := config.Get()
-	secureCookies := cfg.Security.SessionCookieSecure || cfg.Server.TLS.Enabled
+	defaultSecureCookies := cfg.Security.SessionCookieSecure || cfg.Server.TLS.Enabled
 
 	// Создаём хранилище сессий на основе cookies
 	// Секретный ключ берётся из конфигурации
@@ -64,7 +66,7 @@ func Init() {
 		Path:     "/",                                                 // Cookie доступен для всего сайта
 		MaxAge:   cfg.Security.SessionMaxAge,                          // Время жизни сессии (по умолчанию 24 часа)
 		HttpOnly: cfg.Security.SessionCookieHTTPOnly,                  // Запретить доступ через JavaScript (защита от XSS)
-		Secure:   secureCookies,                                       // Использовать только HTTPS (авто true при server.tls.enabled)
+		Secure:   defaultSecureCookies,                                // Базовый флаг; для proxy режима уточняется per-request
 		SameSite: getSameSiteMode(cfg.Security.SessionCookieSameSite), // Политика SameSite
 	}
 
@@ -155,6 +157,7 @@ func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *
 	if err != nil {
 		return err
 	}
+	session.Options.Secure = sm.isSecureRequest(r)
 
 	// Сохраняем данные пользователя в сессию (как в PHP)
 	session.Values[SessionKeyAuth] = true
@@ -247,7 +250,7 @@ func (sm *SessionManager) GetUser(r *http.Request) (*models.User, bool, error) {
 //	    // обработка ошибки
 //	}
 func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) error {
-	secureCookies := sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled
+	secureCookies := sm.isSecureRequest(r)
 
 	session, err := sm.GetSession(r, w)
 	if err != nil {
@@ -257,6 +260,7 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 	// Очищаем все значения сессии
 	session.Values = make(map[interface{}]interface{})
 	session.Options.MaxAge = -1 // Удалить cookie
+	session.Options.Secure = secureCookies
 
 	// Удаляем cookies "Remember Me" (как в PHP)
 	http.SetCookie(w, &http.Cookie{
@@ -302,8 +306,8 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 // Использование:
 //
 //	sm.SetRememberMeCookies(w, "admin", "abc123...")
-func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, token string) {
-	secureCookies := sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled
+func (sm *SessionManager) SetRememberMeCookies(r *http.Request, w http.ResponseWriter, login, token string) {
+	secureCookies := sm.isSecureRequest(r)
 
 	// Вычисляем время истечения (как в PHP: +7 дней)
 	expires := time.Now().Add(time.Duration(sm.config.Security.RememberMeDays) * 24 * time.Hour)
@@ -329,6 +333,66 @@ func (sm *SessionManager) SetRememberMeCookies(w http.ResponseWriter, login, tok
 		Secure:   secureCookies,
 		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
 	})
+}
+
+func (sm *SessionManager) isSecureRequest(r *http.Request) bool {
+	if sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled {
+		return true
+	}
+	if r == nil || !sm.config.Proxy.Enabled || !sm.config.Proxy.TrustForwardHeaders {
+		return false
+	}
+	if !isRemoteAddrTrusted(r.RemoteAddr, sm.config.Proxy.TrustedCIDRs) {
+		return false
+	}
+	proto := forwardedProtoByHops(r.Header.Get("X-Forwarded-Proto"), sm.config.Proxy.TrustedHops)
+	return strings.EqualFold(proto, "https")
+}
+
+func isRemoteAddrTrusted(remoteAddr string, trustedCIDRs []string) bool {
+	host := strings.TrimSpace(remoteAddr)
+	if host == "" {
+		return false
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, cidr := range trustedCIDRs {
+		_, network, err := net.ParseCIDR(strings.TrimSpace(cidr))
+		if err != nil {
+			continue
+		}
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func forwardedProtoByHops(raw string, hops int) string {
+	if hops <= 0 {
+		hops = 1
+	}
+	parts := strings.Split(raw, ",")
+	filtered := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			filtered = append(filtered, p)
+		}
+	}
+	if len(filtered) == 0 {
+		return ""
+	}
+	idx := len(filtered) - hops
+	if idx < 0 {
+		idx = 0
+	}
+	return filtered[idx]
 }
 
 // RestoreUserFromCookies восстанавливает пользователя из cookies "Remember Me".

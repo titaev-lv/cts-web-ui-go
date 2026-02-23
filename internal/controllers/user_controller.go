@@ -193,7 +193,7 @@ func (u *UserController) Login(c *gin.Context) {
 	// Если выбрано "Remember Me", устанавливаем cookies с токеном
 	if remember && result.Token != "" {
 		rememberStart := time.Now()
-		sm.SetRememberMeCookies(c.Writer, username, result.Token)
+		sm.SetRememberMeCookies(c.Request, c.Writer, username, result.Token)
 		middleware.AddLatencyPart(c, "remember_cookie_ms", time.Since(rememberStart))
 		logger.Debug().
 			Str("login", username).

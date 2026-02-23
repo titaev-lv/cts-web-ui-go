@@ -3,12 +3,12 @@
 
 # Server configuration
 server:
-  port: 8443
+  port: 8443  # В proxy mode это внутренний upstream-порт web-ui (внешний порт обслуживает nginx)
   tls:
-    enabled: true
-    cert_path: "pki/server/web-ui.fullchain.crt"
-    key_path: "pki/server/web-ui.key"
-    ca_path: "pki/ca/ca.crt"
+    enabled: true  # ⚠ В proxy mode обычно не используется (TLS терминирует nginx)
+    cert_path: "pki/server/web-ui.fullchain.crt"  # ⚠ Не используется, если tls.enabled=false в proxy mode
+    key_path: "pki/server/web-ui.key"  # ⚠ Не используется, если tls.enabled=false в proxy mode
+    ca_path: "pki/ca/ca.crt"  # ⚠ Для входящего HTTPS web-ui не используется (reserved)
   timeouts:
     read: 60s
     write: 60s
@@ -18,6 +18,7 @@ server:
   limits:
     max_header_bytes: 1048576
   http2:
+    # ⚠ В proxy mode не влияет на внешний HTTP/2 (его обслуживает nginx на edge)
     max_concurrent_streams: "250"
     initial_window_size: "64k"
     max_frame_size: "16k"
@@ -25,6 +26,16 @@ server:
     idle_timeout_seconds: 120
     max_upload_buffer_per_conn: "1M"
     max_upload_buffer_per_stream: "1M"
+
+# Reverse proxy configuration (точка входа: nginx -> web-ui)
+proxy:
+  enabled: false  # Включает proxy-aware режим приложения (на текущем этапе зарезервировано, поведение в разработке)
+  trust_forward_headers: false  # Доверять X-Forwarded-* только от trusted источников (на текущем этапе зарезервировано)
+  trusted_hops: 1  # Кол-во прокси-хопов до клиента (на текущем этапе зарезервировано)
+  trusted_cidrs:
+    - "127.0.0.1/32"  # Разрешенный источник forwarded headers (на текущем этапе зарезервировано)
+    - "10.0.0.0/8"  # Разрешенный источник forwarded headers (на текущем этапе зарезервировано)
+  static_via_nginx: false  # true: статику отдает nginx, backend static routes не нужны (на текущем этапе зарезервировано)
 
 # Database configuration
 database:
