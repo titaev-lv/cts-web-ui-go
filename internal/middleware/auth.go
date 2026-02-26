@@ -51,7 +51,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			"/healthz":     true, // Health endpoint для docker/k8s probes
 			"/login":       true, // Страница входа
 			"/auth/login":  true, // Обработка формы входа
-			"/auth/logout": true, // Выход из системы (может быть вызван без авторизации)
 			"/favicon.ico": true, // Favicon (браузеры запрашивают автоматически)
 		}
 

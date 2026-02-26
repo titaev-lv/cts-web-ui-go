@@ -39,8 +39,8 @@ COPY --from=builder /build/web-ui .
 # Скопировать статические файлы и шаблоны
 COPY --chown=webui:webui web/ ./web/
 
-# Скопировать пример конфига (реальный будет через volume)
-COPY --chown=webui:webui config/config.example.yaml ./config/
+# Скопировать дефолтный конфиг (реальный в docker-compose обычно монтируется через volume)
+COPY --chown=webui:webui config/config.proxy.yaml ./config/config.yaml
 
 # Создать необходимые директории
 RUN mkdir -p logs pki/ca pki/mysql config && \

@@ -25,69 +25,100 @@ proxy:
     - "172.16.0.0/12"
   static_via_nginx: true
 
-# Database configuration
-database:
-  engine: "mysql"
-  mysql:
-    host: "ct-system-mysql"
-    port: 3306
-    user: "root"
-    password: "root"
-    database: "ct_system"
-    charset: "utf8mb4"
-    parse_time: true
-    max_open_conns: 25
-    max_idle_conns: 5
-    conn_max_lifetime: 300s
-    conn_max_idle_time: 60s
+# Databases configuration
+databases:
+  system:
+    engine: "mysql"
+    mysql:
+      host: "ct-system-mysql"
+      port: 3306
+      user: "root"
+      password: "root"
+      database: "ct_system"
+      charset: "utf8mb4"
+      parse_time: true
+      pool:
+        max_open_conns: 25
+        max_idle_conns: 5
+        conn_max_lifetime: 300s
+        conn_max_idle_time: 60s
+      tls:
+        enabled: false
+        ca_path: ""
+        cert_path: ""
+        key_path: ""
+      retry:
+        max_attempts: 3
+        initial_delay: 1s
+        max_delay: 5s
+        multiplier: 2.0
+  audit:
+    engine: "clickhouse"
+    clickhouse:
+      host: clickhouse-prod.titaev.pro
+      port: 8123
+      database: crypto
+      username: crypto_user
+      password: secure_password_here
+      use_tls: true
+      connect_timeout: 10
+      max_retries: 3
+      compression: true
+      max_batch_size: 10000
+      replication_factor: 1
+  quotes:
+    engine: "clickhouse"
+    clickhouse:
+      host: clickhouse-prod.titaev.pro
+      port: 8123
+      database: crypto
+      username: crypto_user
+      password: secure_password_here
+      use_tls: true
+      connect_timeout: 10
+      max_retries: 3
+      compression: true
+      max_batch_size: 10000
+      replication_factor: 1
 
 # Security configuration
 security:
-  session_secret: "dev-session-secret-change-in-production"
-  csrf_secret: "dev-csrf-secret-change-in-production"
-  bcrypt_cost: 10
-  session_cookie_name: "ct_session"
-  session_cookie_secure: false
-  session_cookie_http_only: true
-  session_cookie_same_site: "Lax"
-  session_max_age: 86400
-  remember_me_days: 7
+  csrf:
+    secret: "dev-csrf-secret-change-in-production"
+    enabled: false
+    cookie_name: "csrf_token"
+    header_name: "X-CSRF-Token"
+    trusted_origins: []
+  session:
+    secret: "dev-session-secret-change-in-production"
+    cookie_name: "ct_session"
+    cookie_secure: false
+    cookie_http_only: true
+    cookie_same_site: "Lax"
+    max_age: 86400
+    remember_me_days: 7
+  bcrypt_cost: 12
 
 rate_limit:
   login:
     requests_per_minute: 5
     burst: 5
   api:
-    requests_per_second: 100
+    requests_per_second: 120
     burst: 100
 
 # Logging configuration
 logging:
   level: "debug"  # debug for development
   format: "json"  # json for better parsing in production
+  compress: false
   output: "both"  # stdout for docker logs, file for persistence
-  error_path: "/app/logs/error.log"  # Absolute path inside container
+  error_path: "/var/log/web-ui/error.log"
+  access_path: "/var/log/web-ui/access.log"
+  audit_path: "/var/log/web-ui/audit.log"
+  access_to_stdout: true
+  out_request_to_stdout: true
+  audit_to_stdout: true
   max_size_mb: 100
   max_backups: 5
   max_age_days: 30
-  compress: true
-  access_path: "/app/logs/access.log"
-  access_max_size_mb: 50
-  access_max_backups: 10
-  access_max_age_days: 7
-  audit_path: "/app/logs/audit.log"
-  audit_max_size_mb: 100
-  audit_max_backups: 5
-  audit_max_age_days: 30
-
-# Daemon configuration
-daemon:
-  path: "/home/trader/trader"
-  check_interval: 5s
-
-# Application settings
-app:
-  name: "CT-System"
-  version: "1.0.0"
-  timezone: "UTC"
-  default_language: "en"

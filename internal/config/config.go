@@ -18,12 +18,10 @@ import (
 type Config struct {
 	Server    ServerConfig    `mapstructure:"server"`     // Настройки HTTP сервера
 	Proxy     ProxyConfig     `mapstructure:"proxy"`      // Настройки reverse-proxy режима
-	Database  DatabaseConfig  `mapstructure:"database"`   // Настройки базы данных
+	Databases DatabasesConfig `mapstructure:"databases"`  // Унифицированные настройки подключений к БД
 	Security  SecurityConfig  `mapstructure:"security"`   // Настройки безопасности
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"` // Глобальные настройки rate limiting
 	Logging   LoggingConfig   `mapstructure:"logging"`    // Настройки логирования
-	Daemon    DaemonConfig    `mapstructure:"daemon"`     // Настройки демона
-	App       AppConfig       `mapstructure:"app"`        // Общие настройки приложения
 }
 
 // ProxyConfig - настройки работы web-ui за reverse proxy (nginx).
@@ -66,26 +64,54 @@ type TLSServerConfig struct {
 	CAPath   string `mapstructure:"ca_path"`   // Путь к CA сертификату (зарезервировано под mTLS)
 }
 
-// DatabaseConfig - настройки подключения к базе данных
-type DatabaseConfig struct {
-	Engine string       `mapstructure:"engine"` // Тип БД: "mysql" или "oracle" (пока только mysql)
-	MySQL  MySQLConfig  `mapstructure:"mysql"`  // Настройки для MySQL
-	Oracle OracleConfig `mapstructure:"oracle"` // Настройки для Oracle (на будущее)
+// DatabasesConfig - унифицированные подключения по функциональным зонам.
+type DatabasesConfig struct {
+	System DatabaseTargetConfig `mapstructure:"system"`
+	Audit  DatabaseTargetConfig `mapstructure:"audit"`
+	Quotes DatabaseTargetConfig `mapstructure:"quotes"`
+}
+
+// DatabaseTargetConfig - универсальная цель подключения.
+type DatabaseTargetConfig struct {
+	Engine     string           `mapstructure:"engine"`
+	MySQL      MySQLConfig      `mapstructure:"mysql"`
+	Oracle     OracleConfig     `mapstructure:"oracle"`
+	ClickHouse ClickHouseConfig `mapstructure:"clickhouse"`
 }
 
 // MySQLConfig - детальные настройки для подключения к MySQL
 type MySQLConfig struct {
-	Host            string        `mapstructure:"host"`               // Адрес сервера БД (например, "localhost")
-	Port            int           `mapstructure:"port"`               // Порт MySQL (обычно 3306)
-	User            string        `mapstructure:"user"`               // Имя пользователя БД
-	Password        string        `mapstructure:"password"`           // Пароль пользователя БД
-	Database        string        `mapstructure:"database"`           // Имя базы данных
-	Charset         string        `mapstructure:"charset"`            // Кодировка (обычно "utf8mb4")
-	ParseTime       bool          `mapstructure:"parse_time"`         // Автоматически парсить время из БД в Go time.Time
-	MaxOpenConns    int           `mapstructure:"max_open_conns"`     // Максимальное количество открытых соединений
-	MaxIdleConns    int           `mapstructure:"max_idle_conns"`     // Максимальное количество неактивных соединений в пуле
-	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`  // Максимальное время жизни соединения (300s = 5 минут)
-	ConnMaxIdleTime time.Duration `mapstructure:"conn_max_idle_time"` // Максимальное время простоя соединения (60s = 1 минута)
+	Host      string             `mapstructure:"host"`       // Адрес сервера БД (например, "localhost")
+	Port      int                `mapstructure:"port"`       // Порт MySQL (обычно 3306)
+	User      string             `mapstructure:"user"`       // Имя пользователя БД
+	Password  string             `mapstructure:"password"`   // Пароль пользователя БД
+	Database  string             `mapstructure:"database"`   // Имя базы данных
+	Charset   string             `mapstructure:"charset"`    // Кодировка (обычно "utf8mb4")
+	ParseTime bool               `mapstructure:"parse_time"` // Автоматически парсить время из БД в Go time.Time
+	Pool      DatabasePoolConfig `mapstructure:"pool"`       // Настройки пула соединений
+	TLS       DatabaseTLSConfig  `mapstructure:"tls"`        // Настройки TLS для исходящих соединений к БД
+	Retry     RetryConfig        `mapstructure:"retry"`      // Политика повторных попыток (зарезервировано)
+}
+
+type DatabasePoolConfig struct {
+	MaxOpenConns    int           `mapstructure:"max_open_conns"`
+	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
+	ConnMaxIdleTime time.Duration `mapstructure:"conn_max_idle_time"`
+}
+
+type DatabaseTLSConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	CertPath string `mapstructure:"cert_path"`
+	KeyPath  string `mapstructure:"key_path"`
+	CAPath   string `mapstructure:"ca_path"`
+}
+
+type RetryConfig struct {
+	MaxAttempts  int           `mapstructure:"max_attempts"`
+	InitialDelay time.Duration `mapstructure:"initial_delay"`
+	MaxDelay     time.Duration `mapstructure:"max_delay"`
+	Multiplier   float64       `mapstructure:"multiplier"`
 }
 
 // OracleConfig - настройки для Oracle (заготовка на будущее)
@@ -97,19 +123,42 @@ type OracleConfig struct {
 	Database string `mapstructure:"database"` // Имя базы данных (SID)
 }
 
+// ClickHouseConfig - задел для унифицированной схемы подключений.
+type ClickHouseConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Database string `mapstructure:"database"`
+}
+
 // SecurityConfig - настройки безопасности приложения
 type SecurityConfig struct {
-	SessionSecret         string `mapstructure:"session_secret"`           // Секретный ключ для сессий (должен быть уникальным!)
-	CSRFSecret            string `mapstructure:"csrf_secret"`              // Секретный ключ для CSRF защиты (должен быть уникальным!)
-	BcryptCost            int    `mapstructure:"bcrypt_cost"`              // Сложность хеширования паролей (10 = хороший баланс скорости/безопасности)
-	SessionCookieName     string `mapstructure:"session_cookie_name"`      // Имя cookie для сессии
-	SessionCookieSecure   bool   `mapstructure:"session_cookie_secure"`    // Использовать только HTTPS для cookie (true в продакшн)
-	SessionCookieHTTPOnly bool   `mapstructure:"session_cookie_http_only"` // Запретить доступ к cookie через JavaScript (защита от XSS)
-	SessionCookieSameSite string `mapstructure:"session_cookie_same_site"` // Политика SameSite: "Strict", "Lax" или "None"
-	SessionMaxAge         int    `mapstructure:"session_max_age"`          // Время жизни сессии в секундах (86400 = 24 часа)
-	RememberMeDays        int    `mapstructure:"remember_me_days"`         // Количество дней для "Запомнить меня" (7 дней)
-	RateLimitLogin        int    `mapstructure:"rate_limit_login"`         // DEPRECATED: используйте rate_limit.login.requests_per_minute
-	RateLimitAPI          int    `mapstructure:"rate_limit_api"`           // DEPRECATED: используйте rate_limit.api.requests_per_second
+	CSRF           CSRFConfig    `mapstructure:"csrf"`             // Настройки CSRF middleware
+	Session        SessionConfig `mapstructure:"session"`          // Настройки сессий и session cookie
+	BcryptCost     int           `mapstructure:"bcrypt_cost"`      // Сложность хеширования паролей (10 = хороший баланс скорости/безопасности)
+	RateLimitLogin int           `mapstructure:"rate_limit_login"` // DEPRECATED: используйте rate_limit.login.requests_per_minute
+	RateLimitAPI   int           `mapstructure:"rate_limit_api"`   // DEPRECATED: используйте rate_limit.api.requests_per_second
+}
+
+// CSRFConfig - настройки включения и политики CSRF middleware.
+type CSRFConfig struct {
+	Secret         string   `mapstructure:"secret"`
+	Enabled        bool     `mapstructure:"enabled"`
+	CookieName     string   `mapstructure:"cookie_name"`
+	HeaderName     string   `mapstructure:"header_name"`
+	TrustedOrigins []string `mapstructure:"trusted_origins"`
+}
+
+// SessionConfig - настройки сессий и cookie.
+type SessionConfig struct {
+	Secret         string `mapstructure:"secret"`
+	CookieName     string `mapstructure:"cookie_name"`
+	CookieSecure   bool   `mapstructure:"cookie_secure"`
+	CookieHTTPOnly bool   `mapstructure:"cookie_http_only"`
+	CookieSameSite string `mapstructure:"cookie_same_site"`
+	MaxAge         int    `mapstructure:"max_age"`
+	RememberMeDays int    `mapstructure:"remember_me_days"`
 }
 
 // RateLimitConfig - настройки лимитов запросов приложения.
@@ -132,36 +181,25 @@ type APIRateLimitConfig struct {
 
 // LoggingConfig - настройки системы логирования
 type LoggingConfig struct {
-	Level            string `mapstructure:"level"`               // Уровень логирования: "debug", "info", "warn", "error"
-	Format           string `mapstructure:"format"`              // Формат логов: "json" (структурированный) или "text" (читаемый)
-	Output           string `mapstructure:"output"`              // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
-	ErrorPath        string `mapstructure:"error_path"`          // Путь к файлу логов (если output = "file" или "both")
-	MaxSizeMB        int    `mapstructure:"max_size_mb"`         // Максимальный размер файла лога в МБ (100 МБ)
-	MaxBackups       int    `mapstructure:"max_backups"`         // Количество архивных файлов логов (5 файлов)
-	MaxAgeDays       int    `mapstructure:"max_age_days"`        // Хранить логи N дней (30 дней)
-	Compress         bool   `mapstructure:"compress"`            // Сжимать старые логи (gzip)
-	AccessPath       string `mapstructure:"access_path"`         // Путь к access log (если пусто, создается рядом с File)
-	AccessMaxSizeMB  int    `mapstructure:"access_max_size_mb"`  // Максимальный размер access log в МБ
-	AccessMaxBackups int    `mapstructure:"access_max_backups"`  // Количество архивных access log файлов
-	AccessMaxAgeDays int    `mapstructure:"access_max_age_days"` // Хранить access log N дней
-	AuditPath        string `mapstructure:"audit_path"`          // Путь к audit log (если пусто, создается рядом с File)
-	AuditMaxSizeMB   int    `mapstructure:"audit_max_size_mb"`   // Максимальный размер audit log в МБ
-	AuditMaxBackups  int    `mapstructure:"audit_max_backups"`   // Количество архивных audit log файлов
-	AuditMaxAgeDays  int    `mapstructure:"audit_max_age_days"`  // Хранить audit log N дней
-}
-
-// DaemonConfig - настройки для управления внешним демоном
-type DaemonConfig struct {
-	Path          string        `mapstructure:"path"`           // Путь к исполняемому файлу демона
-	CheckInterval time.Duration `mapstructure:"check_interval"` // Как часто проверять статус демона (5s)
-}
-
-// AppConfig - общие настройки приложения
-type AppConfig struct {
-	Name            string `mapstructure:"name"`             // Название приложения
-	Version         string `mapstructure:"version"`          // Версия приложения
-	Timezone        string `mapstructure:"timezone"`         // Часовой пояс (например, "UTC", "Europe/Moscow")
-	DefaultLanguage string `mapstructure:"default_language"` // Язык по умолчанию ("en", "ru")
+	Level              string `mapstructure:"level"`                 // Уровень логирования: "debug", "info", "warn", "error"
+	Format             string `mapstructure:"format"`                // Формат логов: "json" (структурированный) или "text" (читаемый)
+	Output             string `mapstructure:"output"`                // Куда писать логи: "stdout" (консоль), "file" (файл) или "both" (оба)
+	ErrorPath          string `mapstructure:"error_path"`            // Путь к файлу логов (если output = "file" или "both")
+	MaxSizeMB          int    `mapstructure:"max_size_mb"`           // Максимальный размер файла лога в МБ (100 МБ)
+	MaxBackups         int    `mapstructure:"max_backups"`           // Количество архивных файлов логов (5 файлов)
+	MaxAgeDays         int    `mapstructure:"max_age_days"`          // Хранить логи N дней (30 дней)
+	Compress           bool   `mapstructure:"compress"`              // Сжимать старые логи (gzip)
+	AccessPath         string `mapstructure:"access_path"`           // Путь к access log (если пусто, создается рядом с File)
+	AccessToStdout     *bool  `mapstructure:"access_to_stdout"`      // Дублировать access лог в stdout
+	OutRequestToStdout *bool  `mapstructure:"out_request_to_stdout"` // Зарезервировано для отдельного out_request потока
+	AccessMaxSizeMB    int    `mapstructure:"access_max_size_mb"`    // Максимальный размер access log в МБ
+	AccessMaxBackups   int    `mapstructure:"access_max_backups"`    // Количество архивных access log файлов
+	AccessMaxAgeDays   int    `mapstructure:"access_max_age_days"`   // Хранить access log N дней
+	AuditPath          string `mapstructure:"audit_path"`            // Путь к audit log (если пусто, создается рядом с File)
+	AuditToStdout      *bool  `mapstructure:"audit_to_stdout"`       // Дублировать audit лог в stdout
+	AuditMaxSizeMB     int    `mapstructure:"audit_max_size_mb"`     // Максимальный размер audit log в МБ
+	AuditMaxBackups    int    `mapstructure:"audit_max_backups"`     // Количество архивных audit log файлов
+	AuditMaxAgeDays    int    `mapstructure:"audit_max_age_days"`    // Хранить audit log N дней
 }
 
 var (
@@ -211,7 +249,7 @@ func Load(configPath string) (*Config, error) {
 	viper.SetEnvPrefix("CT")
 	// Автоматически читать переменные окружения и маппить их в конфигурацию
 	// CT_SERVER_PORT -> server.port
-	// CT_DATABASE_MYSQL_HOST -> database.mysql.host
+	// CT_DATABASES_SYSTEM_MYSQL_HOST -> databases.system.mysql.host
 	viper.AutomaticEnv()
 
 	// Читаем конфигурационный файл (config.yaml)
@@ -348,30 +386,140 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	// Проверка, что указан тип базы данных
-	if cfg.Database.Engine == "" {
-		return fmt.Errorf("database engine is required")
+	// Проверка, что указан тип system-базы
+	if cfg.Databases.System.Engine == "" {
+		return fmt.Errorf("databases.system.engine is required")
 	}
 
-	// Если используется MySQL, проверяем обязательные поля
-	if cfg.Database.Engine == "mysql" {
-		if cfg.Database.MySQL.Host == "" {
+	// Если используется MySQL для system, проверяем обязательные поля
+	if cfg.Databases.System.Engine == "mysql" {
+		if cfg.Databases.System.MySQL.Host == "" {
 			return fmt.Errorf("mysql host is required")
 		}
-		if cfg.Database.MySQL.Database == "" {
+		if cfg.Databases.System.MySQL.Database == "" {
 			return fmt.Errorf("mysql database name is required")
 		}
-		if cfg.Database.MySQL.User == "" {
+		if cfg.Databases.System.MySQL.User == "" {
 			return fmt.Errorf("mysql user is required")
+		}
+		if cfg.Databases.System.MySQL.Pool.MaxOpenConns == 0 {
+			cfg.Databases.System.MySQL.Pool.MaxOpenConns = 25
+		}
+		if cfg.Databases.System.MySQL.Pool.MaxIdleConns == 0 {
+			cfg.Databases.System.MySQL.Pool.MaxIdleConns = 5
+		}
+		if cfg.Databases.System.MySQL.Pool.ConnMaxLifetime == 0 {
+			cfg.Databases.System.MySQL.Pool.ConnMaxLifetime = 300 * time.Second
+		}
+		if cfg.Databases.System.MySQL.Pool.ConnMaxIdleTime == 0 {
+			cfg.Databases.System.MySQL.Pool.ConnMaxIdleTime = 60 * time.Second
+		}
+
+		if cfg.Databases.System.MySQL.Pool.MaxOpenConns < 1 {
+			return fmt.Errorf("databases.system.mysql.pool.max_open_conns must be > 0")
+		}
+		if cfg.Databases.System.MySQL.Pool.MaxIdleConns < 0 {
+			return fmt.Errorf("databases.system.mysql.pool.max_idle_conns must be >= 0")
+		}
+		if cfg.Databases.System.MySQL.Pool.MaxIdleConns > cfg.Databases.System.MySQL.Pool.MaxOpenConns {
+			return fmt.Errorf("databases.system.mysql.pool.max_idle_conns cannot be greater than max_open_conns")
+		}
+
+		if cfg.Databases.System.MySQL.Retry.MaxAttempts == 0 {
+			cfg.Databases.System.MySQL.Retry.MaxAttempts = 3
+		}
+		if cfg.Databases.System.MySQL.Retry.InitialDelay == 0 {
+			cfg.Databases.System.MySQL.Retry.InitialDelay = 1 * time.Second
+		}
+		if cfg.Databases.System.MySQL.Retry.MaxDelay == 0 {
+			cfg.Databases.System.MySQL.Retry.MaxDelay = 5 * time.Second
+		}
+		if cfg.Databases.System.MySQL.Retry.Multiplier == 0 {
+			cfg.Databases.System.MySQL.Retry.Multiplier = 2.0
+		}
+
+		if cfg.Databases.System.MySQL.Retry.MaxAttempts < 1 {
+			return fmt.Errorf("databases.system.mysql.retry.max_attempts must be > 0")
+		}
+		if cfg.Databases.System.MySQL.Retry.InitialDelay < 0 {
+			return fmt.Errorf("databases.system.mysql.retry.initial_delay must be >= 0")
+		}
+		if cfg.Databases.System.MySQL.Retry.MaxDelay < 0 {
+			return fmt.Errorf("databases.system.mysql.retry.max_delay must be >= 0")
+		}
+		if cfg.Databases.System.MySQL.Retry.Multiplier < 1.0 {
+			return fmt.Errorf("databases.system.mysql.retry.multiplier must be >= 1.0")
+		}
+
+		if cfg.Databases.System.MySQL.TLS.Enabled {
+			if cfg.Databases.System.MySQL.TLS.CAPath == "" {
+				return fmt.Errorf("databases.system.mysql.tls.ca_path is required when tls.enabled=true")
+			}
+			if cfg.Databases.System.MySQL.TLS.CertPath == "" {
+				return fmt.Errorf("databases.system.mysql.tls.cert_path is required when tls.enabled=true")
+			}
+			if cfg.Databases.System.MySQL.TLS.KeyPath == "" {
+				return fmt.Errorf("databases.system.mysql.tls.key_path is required when tls.enabled=true")
+			}
 		}
 	}
 
 	// Проверка, что секретные ключи изменены с дефолтных значений
 	// Это важно для безопасности - нельзя использовать дефолтные ключи в продакшн
-	if cfg.Security.SessionSecret == "" || cfg.Security.SessionSecret == "change-this-session-secret-in-production" {
-		return fmt.Errorf("session_secret must be set and changed from default")
+	if cfg.Security.Session.Secret == "" || cfg.Security.Session.Secret == "change-this-session-secret-in-production" {
+		return fmt.Errorf("security.session.secret must be set and changed from default")
+	}
+	if cfg.Security.CSRF.Secret == "" || cfg.Security.CSRF.Secret == "change-this-csrf-secret-in-production" {
+		return fmt.Errorf("security.csrf.secret must be set and changed from default")
+	}
+	if cfg.Security.BcryptCost == 0 {
+		cfg.Security.BcryptCost = 10
+	}
+	if cfg.Security.BcryptCost < 10 || cfg.Security.BcryptCost > 14 {
+		return fmt.Errorf("security.bcrypt_cost must be between 10 and 14")
 	}
 
+	if cfg.Security.Session.CookieName == "" {
+		cfg.Security.Session.CookieName = "ct_session"
+	}
+	if cfg.Security.Session.MaxAge == 0 {
+		cfg.Security.Session.MaxAge = 86400
+	}
+	if cfg.Security.Session.RememberMeDays == 0 {
+		cfg.Security.Session.RememberMeDays = 7
+	}
+	if cfg.Security.Session.CookieSameSite == "" {
+		cfg.Security.Session.CookieSameSite = "Lax"
+	}
+	sameSite := strings.ToLower(strings.TrimSpace(cfg.Security.Session.CookieSameSite))
+	switch sameSite {
+	case "strict", "lax", "none":
+	default:
+		return fmt.Errorf("security.session.cookie_same_site must be one of: Strict, Lax, None")
+	}
+	if sameSite == "none" && !(cfg.Security.Session.CookieSecure || cfg.Server.TLS.Enabled) {
+		return fmt.Errorf("security.session.cookie_same_site=None requires security.session.cookie_secure=true or server.tls.enabled=true")
+	}
+
+	if cfg.Security.CSRF.CookieName == "" {
+		cfg.Security.CSRF.CookieName = "csrf_token"
+	}
+	if cfg.Security.CSRF.HeaderName == "" {
+		cfg.Security.CSRF.HeaderName = "X-CSRF-Token"
+	}
+	for _, origin := range cfg.Security.CSRF.TrustedOrigins {
+		if strings.TrimSpace(origin) == "" {
+			return fmt.Errorf("security.csrf.trusted_origins must not contain empty values")
+		}
+	}
+
+	if cfg.Databases.System.Engine != "mysql" {
+		return fmt.Errorf("unsupported databases.system.engine: %s", cfg.Databases.System.Engine)
+	}
+
+	if cfg.RateLimit.Login.RequestsPerMinute > 0 && cfg.Security.RateLimitLogin > 0 && cfg.RateLimit.Login.RequestsPerMinute != cfg.Security.RateLimitLogin {
+		return fmt.Errorf("both rate_limit.login.requests_per_minute and security.rate_limit_login are set with different values; use rate_limit.login.requests_per_minute")
+	}
 	if cfg.RateLimit.Login.RequestsPerMinute == 0 {
 		if cfg.Security.RateLimitLogin > 0 {
 			cfg.RateLimit.Login.RequestsPerMinute = cfg.Security.RateLimitLogin
@@ -389,6 +537,9 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("rate_limit.login.burst must be >= 0")
 	}
 
+	if cfg.RateLimit.API.RequestsPerSecond > 0 && cfg.Security.RateLimitAPI > 0 && cfg.RateLimit.API.RequestsPerSecond != cfg.Security.RateLimitAPI {
+		return fmt.Errorf("both rate_limit.api.requests_per_second and security.rate_limit_api are set with different values; use rate_limit.api.requests_per_second")
+	}
 	if cfg.RateLimit.API.RequestsPerSecond == 0 {
 		if cfg.Security.RateLimitAPI > 0 {
 			cfg.RateLimit.API.RequestsPerSecond = cfg.Security.RateLimitAPI
@@ -421,7 +572,7 @@ func validate(cfg *Config) error {
 // Возвращает:
 //   - string: строка подключения к MySQL
 func (c *Config) GetMySQLDSN() string {
-	cfg := c.Database.MySQL
+	cfg := c.Databases.System.MySQL
 
 	// Базовая часть DSN: user:password@tcp(host:port)/database
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
@@ -439,6 +590,13 @@ func (c *Config) GetMySQLDSN() string {
 		} else {
 			// Если параметров ещё нет, добавляем через ?
 			dsn += "?parseTime=true"
+		}
+	}
+	if cfg.TLS.Enabled {
+		if strings.Contains(dsn, "?") {
+			dsn += "&tls=true"
+		} else {
+			dsn += "?tls=true"
 		}
 	}
 

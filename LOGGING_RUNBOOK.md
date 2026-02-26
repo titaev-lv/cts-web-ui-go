@@ -84,15 +84,15 @@ docker logs --since 1m ct-system-web-ui 2>&1 | grep '"log_level":"debug"'
 
 ## Troubleshooting
 
-### Logger init fails: `/app/logs is not writable`
+### Logger init fails: `/var/log/web-ui is not writable`
 
 Symptoms in container logs:
-- `Failed to initialize logger: ... log dir /app/logs is not writable`
+- `Failed to initialize logger: ... log dir /var/log/web-ui is not writable`
 
 Checks:
 ```bash
 ls -ldn services/web-ui-go/logs
-docker exec ct-system-web-ui sh -lc 'id && test -w /app/logs && echo writable'
+docker exec ct-system-web-ui sh -lc 'id && test -w /var/log/web-ui && echo writable'
 ```
 
 Recommended fix:
@@ -107,4 +107,4 @@ docker compose ps web-ui
 docker logs --since 5m ct-system-web-ui
 ```
 
-Ensure logging config uses `output: both` in `services/web-ui-go/config/config.yaml`.
+Ensure logging config enables stdout flags for required streams (`access_to_stdout`, `audit_to_stdout`) and uses compatible `output` mode in `services/web-ui-go/config/config.yaml`.

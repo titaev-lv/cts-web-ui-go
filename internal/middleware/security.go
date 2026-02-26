@@ -248,21 +248,33 @@ func SanitizeString(input string) string {
 //	    <input type="hidden" name="gorilla.csrf.Token" value="{{.csrf_token}}">
 //	    ...
 //	</form>
-func CSRFMiddleware(secretKey, cookieName string, secure bool) gin.HandlerFunc {
-	// Создаём CSRF middleware с настройками
-	csrfProtect := csrf.Protect(
-		[]byte(secretKey),                    // Секретный ключ для генерации токенов
+func CSRFMiddleware(secretKey, cookieName string, secure bool, headerName string, trustedOrigins []string) gin.HandlerFunc {
+	if headerName == "" {
+		headerName = "X-CSRF-Token"
+	}
+
+	options := []csrf.Option{
 		csrf.Secure(secure),                  // Использовать только HTTPS (если secure = true)
 		csrf.HttpOnly(true),                  // Cookie недоступен через JavaScript (защита от XSS)
 		csrf.SameSite(csrf.SameSiteLaxMode),  // Политика SameSite
 		csrf.CookieName(cookieName),          // Имя cookie
 		csrf.FieldName("gorilla.csrf.Token"), // Имя поля в форме
+		csrf.RequestHeader(headerName),       // Имя заголовка для AJAX запросов
 		csrf.ErrorHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Обработчик ошибки CSRF
 			// Если токен неверен или отсутствует, возвращаем 403 Forbidden
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("CSRF token validation failed"))
 		})),
+	}
+	if len(trustedOrigins) > 0 {
+		options = append(options, csrf.TrustedOrigins(trustedOrigins))
+	}
+
+	// Создаём CSRF middleware с настройками
+	csrfProtect := csrf.Protect(
+		[]byte(secretKey), // Секретный ключ для генерации токенов
+		options...,
 	)
 
 	// Обёртка для Gin
@@ -272,7 +284,7 @@ func CSRFMiddleware(secretKey, cookieName string, secure bool) gin.HandlerFunc {
 			// Сохраняем токен в контексте Gin для использования в шаблонах
 			token := csrf.Token(r)
 			c.Set("csrf_token", token)
-			c.Set("X-CSRF-Token", token) // Также в заголовке для AJAX запросов
+			c.Set(headerName, token) // Также в заголовке для AJAX запросов
 
 			// Продолжаем обработку
 			c.Next()

@@ -159,7 +159,7 @@ logger.Info().
 
 ## Access логирование
 
-HTTP access-логи пишутся через middleware `internal/middleware/access_log.go` в `access.log` и дублируются в stdout.
+HTTP access-логи пишутся через middleware `internal/middleware/access_log.go` в `access.log` и дублируются в stdout при `logging.access_to_stdout=true`.
 
 Стандартные поля access-лога:
 - `module`
@@ -173,7 +173,7 @@ HTTP access-логи пишутся через middleware `internal/middleware/a
 
 ## Audit логирование
 
-Audit-логи пишутся через middleware `internal/middleware/audit_log.go` в `audit.log` и дублируются в stdout (если `output: both`).
+Audit-логи пишутся через middleware `internal/middleware/audit_log.go` в `audit.log` и дублируются в stdout при `logging.audit_to_stdout=true`.
 
 Audit покрывает Web-UI ориентированные события:
 - auth события (`/auth/login`, `/auth/logout`)
@@ -196,16 +196,17 @@ Audit покрывает Web-UI ориентированные события:
 logging:
     level: "info"            # debug, info, warn, error
     format: "text"           # text (читаемый) или json (структурированный)
-    output: "both"           # stdout, file или both
-    error_path: "./logs/error.log"
+    output: "both"           # legacy fallback для stdout/file
+    error_path: "/var/log/web-ui/error.log"
     max_size_mb: 100          # МБ
     max_backups: 5            # Количество архивных файлов
     max_age_days: 30          # Дни
     compress: true            # Сжимать старые логи
-    access_path: "./logs/access.log"
-    access_max_size_mb: 50
-    access_max_backups: 10
-    access_max_age_days: 7
+    access_path: "/var/log/web-ui/access.log"
+    access_to_stdout: true
+    out_request_to_stdout: true  # зарезервировано (поток out_request пока не выделен)
+    audit_path: "/var/log/web-ui/audit.log"
+    audit_to_stdout: true
 ```
 
 ## Форматы вывода

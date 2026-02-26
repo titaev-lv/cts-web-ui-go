@@ -5,6 +5,22 @@ import (
 	"time"
 )
 
+func baseConfig() *Config {
+	return &Config{
+		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
+		Databases: DatabasesConfig{
+			System: DatabaseTargetConfig{
+				Engine: "mysql",
+				MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
+			},
+		},
+		Security: SecurityConfig{
+			CSRF:    CSRFConfig{Secret: "test-csrf-secret"},
+			Session: SessionConfig{Secret: "test-session-secret"},
+		},
+	}
+}
+
 func TestValidateTLSModes(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -13,124 +29,41 @@ func TestValidateTLSModes(t *testing.T) {
 	}{
 		{
 			name: "valid with tls disabled and empty cert paths",
-			cfg: &Config{
-				Server: ServerConfig{
-					Port: 8443,
-					TLS:  TLSServerConfig{Enabled: false},
-					Timeouts: TimeoutConfig{
-						Read:          60 * time.Second,
-						Write:         60 * time.Second,
-						Idle:          120 * time.Second,
-						ReadHeader:    5 * time.Second,
-						ShutdownGrace: 10 * time.Second,
-					},
-				},
-				Database: DatabaseConfig{
-					Engine: "mysql",
-					MySQL: MySQLConfig{
-						Host:     "mysql",
-						Database: "ct_system",
-						User:     "root",
-					},
-				},
-				Security: SecurityConfig{
-					SessionSecret: "test-session-secret",
-				},
-			},
+			cfg: func() *Config {
+				cfg := baseConfig()
+				cfg.Server.Timeouts = TimeoutConfig{Read: 60 * time.Second, Write: 60 * time.Second, Idle: 120 * time.Second, ReadHeader: 5 * time.Second, ShutdownGrace: 10 * time.Second}
+				return cfg
+			}(),
 			wantErr: false,
 		},
 		{
 			name: "valid with tls enabled and cert paths",
-			cfg: &Config{
-				Server: ServerConfig{
-					Port: 8443,
-					TLS: TLSServerConfig{
-						Enabled:  true,
-						CertPath: "pki/server/web-ui.crt",
-						KeyPath:  "pki/server/web-ui.key",
-					},
-					Timeouts: TimeoutConfig{
-						Read:          60 * time.Second,
-						Write:         60 * time.Second,
-						Idle:          120 * time.Second,
-						ReadHeader:    5 * time.Second,
-						ShutdownGrace: 10 * time.Second,
-					},
-				},
-				Database: DatabaseConfig{
-					Engine: "mysql",
-					MySQL: MySQLConfig{
-						Host:     "mysql",
-						Database: "ct_system",
-						User:     "root",
-					},
-				},
-				Security: SecurityConfig{
-					SessionSecret: "test-session-secret",
-				},
-			},
+			cfg: func() *Config {
+				cfg := baseConfig()
+				cfg.Server.TLS = TLSServerConfig{Enabled: true, CertPath: "pki/server/web-ui.crt", KeyPath: "pki/server/web-ui.key"}
+				cfg.Server.Timeouts = TimeoutConfig{Read: 60 * time.Second, Write: 60 * time.Second, Idle: 120 * time.Second, ReadHeader: 5 * time.Second, ShutdownGrace: 10 * time.Second}
+				return cfg
+			}(),
 			wantErr: false,
 		},
 		{
 			name: "invalid tls enabled without cert path",
-			cfg: &Config{
-				Server: ServerConfig{
-					Port: 8443,
-					TLS: TLSServerConfig{
-						Enabled: true,
-						KeyPath: "pki/server/web-ui.key",
-					},
-					Timeouts: TimeoutConfig{
-						Read:          60 * time.Second,
-						Write:         60 * time.Second,
-						Idle:          120 * time.Second,
-						ReadHeader:    5 * time.Second,
-						ShutdownGrace: 10 * time.Second,
-					},
-				},
-				Database: DatabaseConfig{
-					Engine: "mysql",
-					MySQL: MySQLConfig{
-						Host:     "mysql",
-						Database: "ct_system",
-						User:     "root",
-					},
-				},
-				Security: SecurityConfig{
-					SessionSecret: "test-session-secret",
-				},
-			},
+			cfg: func() *Config {
+				cfg := baseConfig()
+				cfg.Server.TLS = TLSServerConfig{Enabled: true, KeyPath: "pki/server/web-ui.key"}
+				cfg.Server.Timeouts = TimeoutConfig{Read: 60 * time.Second, Write: 60 * time.Second, Idle: 120 * time.Second, ReadHeader: 5 * time.Second, ShutdownGrace: 10 * time.Second}
+				return cfg
+			}(),
 			wantErr: true,
 		},
 		{
 			name: "invalid tls enabled without key path",
-			cfg: &Config{
-				Server: ServerConfig{
-					Port: 8443,
-					TLS: TLSServerConfig{
-						Enabled:  true,
-						CertPath: "pki/server/web-ui.crt",
-					},
-					Timeouts: TimeoutConfig{
-						Read:          60 * time.Second,
-						Write:         60 * time.Second,
-						Idle:          120 * time.Second,
-						ReadHeader:    5 * time.Second,
-						ShutdownGrace: 10 * time.Second,
-					},
-				},
-				Database: DatabaseConfig{
-					Engine: "mysql",
-					MySQL: MySQLConfig{
-						Host:     "mysql",
-						Database: "ct_system",
-						User:     "root",
-					},
-				},
-				Security: SecurityConfig{
-					SessionSecret: "test-session-secret",
-				},
-			},
+			cfg: func() *Config {
+				cfg := baseConfig()
+				cfg.Server.TLS = TLSServerConfig{Enabled: true, CertPath: "pki/server/web-ui.crt"}
+				cfg.Server.Timeouts = TimeoutConfig{Read: 60 * time.Second, Write: 60 * time.Second, Idle: 120 * time.Second, ReadHeader: 5 * time.Second, ShutdownGrace: 10 * time.Second}
+				return cfg
+			}(),
 			wantErr: true,
 		},
 	}
@@ -146,21 +79,8 @@ func TestValidateTLSModes(t *testing.T) {
 }
 
 func TestValidateTimeoutDefaults(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-		RateLimit: RateLimitConfig{
-			Login: LoginRateLimitConfig{RequestsPerMinute: 5, Burst: 5},
-			API:   APIRateLimitConfig{RequestsPerSecond: 100, Burst: 100},
-		},
-	}
+	cfg := baseConfig()
+	cfg.RateLimit = RateLimitConfig{Login: LoginRateLimitConfig{RequestsPerMinute: 5, Burst: 5}, API: APIRateLimitConfig{RequestsPerSecond: 100, Burst: 100}}
 
 	if err := validate(cfg); err != nil {
 		t.Fatalf("validate() error = %v", err)
@@ -175,20 +95,8 @@ func TestValidateTimeoutDefaults(t *testing.T) {
 }
 
 func TestValidateTimeoutBounds(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-			Timeouts: TimeoutConfig{
-				Read: -1 * time.Second,
-			},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Server.Timeouts = TimeoutConfig{Read: -1 * time.Second}
 
 	if err := validate(cfg); err == nil {
 		t.Fatal("expected validate() to fail for negative server.timeouts.read")
@@ -196,20 +104,8 @@ func TestValidateTimeoutBounds(t *testing.T) {
 }
 
 func TestValidateMaxHeaderBytesBounds(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-			Limits: LimitsConfig{
-				MaxHeaderBytes: 1024,
-			},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Server.Limits = LimitsConfig{MaxHeaderBytes: 1024}
 
 	if err := validate(cfg); err == nil {
 		t.Fatal("expected validate() to fail for too small server.limits.max_header_bytes")
@@ -217,20 +113,8 @@ func TestValidateMaxHeaderBytesBounds(t *testing.T) {
 }
 
 func TestValidateHTTP2Invalid(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-			HTTP2: &HTTP2Config{
-				MaxFrameSize: "invalid",
-			},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Server.HTTP2 = &HTTP2Config{MaxFrameSize: "invalid"}
 
 	if err := validate(cfg); err == nil {
 		t.Fatal("expected validate() to fail for invalid server.http2")
@@ -238,20 +122,12 @@ func TestValidateHTTP2Invalid(t *testing.T) {
 }
 
 func TestValidateRateLimitFallbackFromSecurity(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{
-			SessionSecret:  "test-session-secret",
-			RateLimitLogin: 7,
-			RateLimitAPI:   55,
-		},
+	cfg := baseConfig()
+	cfg.Security = SecurityConfig{
+		CSRF:           CSRFConfig{Secret: "test-csrf-secret"},
+		Session:        SessionConfig{Secret: "test-session-secret"},
+		RateLimitLogin: 7,
+		RateLimitAPI:   55,
 	}
 
 	if err := validate(cfg); err != nil {
@@ -265,22 +141,61 @@ func TestValidateRateLimitFallbackFromSecurity(t *testing.T) {
 	}
 }
 
-func TestValidateProxyDefaults(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{
-			Port: 8443,
-			TLS:  TLSServerConfig{Enabled: false},
-		},
-		Proxy: ProxyConfig{
-			Enabled:             true,
-			TrustForwardHeaders: true,
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
+func TestValidateRateLimitConflictBetweenLegacyAndNew(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Security.RateLimitLogin = 7
+	cfg.RateLimit.Login.RequestsPerMinute = 5
+
+	if err := validate(cfg); err == nil {
+		t.Fatal("expected validate() to fail when security.rate_limit_login conflicts with rate_limit.login.requests_per_minute")
 	}
+}
+
+func TestValidateSecuritySameSiteNoneRequiresSecure(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Security.Session.CookieSameSite = "None"
+	cfg.Security.Session.CookieSecure = false
+	cfg.Server.TLS.Enabled = false
+
+	if err := validate(cfg); err == nil {
+		t.Fatal("expected validate() to fail for SameSite=None without secure cookies or TLS")
+	}
+}
+
+func TestValidateSecurityBcryptRange(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Security.BcryptCost = 15
+
+	if err := validate(cfg); err == nil {
+		t.Fatal("expected validate() to fail for security.bcrypt_cost out of range")
+	}
+}
+
+func TestValidateSecurityDefaults(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Security.BcryptCost = 0
+	cfg.Security.Session.CookieSameSite = ""
+
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate() error = %v", err)
+	}
+	if cfg.Security.BcryptCost != 10 {
+		t.Fatalf("expected security.bcrypt_cost default=10, got %d", cfg.Security.BcryptCost)
+	}
+	if cfg.Security.Session.CookieSameSite != "Lax" {
+		t.Fatalf("expected security.session.cookie_same_site default=Lax, got %s", cfg.Security.Session.CookieSameSite)
+	}
+	if cfg.Security.CSRF.CookieName != "csrf_token" {
+		t.Fatalf("expected security.csrf.cookie_name default=csrf_token, got %s", cfg.Security.CSRF.CookieName)
+	}
+	if cfg.Security.CSRF.HeaderName != "X-CSRF-Token" {
+		t.Fatalf("expected security.csrf.header_name default=X-CSRF-Token, got %s", cfg.Security.CSRF.HeaderName)
+	}
+}
+
+func TestValidateProxyDefaults(t *testing.T) {
+	cfg := baseConfig()
+	cfg.Proxy = ProxyConfig{Enabled: true, TrustForwardHeaders: true}
 
 	if err := validate(cfg); err != nil {
 		t.Fatalf("validate() error = %v", err)
@@ -297,15 +212,8 @@ func TestValidateProxyDefaults(t *testing.T) {
 func TestValidateProxyTrustedHopsBounds(t *testing.T) {
 	tests := []int{0, -1, 6}
 	for _, hops := range tests {
-		cfg := &Config{
-			Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
-			Proxy:  ProxyConfig{Enabled: true, TrustedHops: hops, TrustedCIDRs: []string{"127.0.0.1/32"}},
-			Database: DatabaseConfig{
-				Engine: "mysql",
-				MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-			},
-			Security: SecurityConfig{SessionSecret: "test-session-secret"},
-		}
+		cfg := baseConfig()
+		cfg.Proxy = ProxyConfig{Enabled: true, TrustedHops: hops, TrustedCIDRs: []string{"127.0.0.1/32"}}
 
 		err := validate(cfg)
 		if hops == 0 {
@@ -322,20 +230,8 @@ func TestValidateProxyTrustedHopsBounds(t *testing.T) {
 }
 
 func TestValidateProxyCIDR(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
-		Proxy: ProxyConfig{
-			Enabled:             true,
-			TrustForwardHeaders: true,
-			TrustedHops:         1,
-			TrustedCIDRs:        []string{"127.0.0.1/32", "not-a-cidr"},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Proxy = ProxyConfig{Enabled: true, TrustForwardHeaders: true, TrustedHops: 1, TrustedCIDRs: []string{"127.0.0.1/32", "not-a-cidr"}}
 
 	if err := validate(cfg); err == nil {
 		t.Fatal("expected validate() to fail for invalid proxy.trusted_cidrs entry")
@@ -343,20 +239,8 @@ func TestValidateProxyCIDR(t *testing.T) {
 }
 
 func TestValidateProxyCIDRSkippedWhenProxyDisabled(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
-		Proxy: ProxyConfig{
-			Enabled:             false,
-			TrustForwardHeaders: true,
-			TrustedHops:         1,
-			TrustedCIDRs:        []string{"not-a-cidr"},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Proxy = ProxyConfig{Enabled: false, TrustForwardHeaders: true, TrustedHops: 1, TrustedCIDRs: []string{"not-a-cidr"}}
 
 	if err := validate(cfg); err != nil {
 		t.Fatalf("expected validate() to skip proxy.trusted_cidrs when proxy.enabled=false, got error: %v", err)
@@ -364,19 +248,8 @@ func TestValidateProxyCIDRSkippedWhenProxyDisabled(t *testing.T) {
 }
 
 func TestValidateProxyTrustedHopsSkippedWhenProxyDisabled(t *testing.T) {
-	cfg := &Config{
-		Server: ServerConfig{Port: 8443, TLS: TLSServerConfig{Enabled: false}},
-		Proxy: ProxyConfig{
-			Enabled:      false,
-			TrustedHops:  99,
-			TrustedCIDRs: []string{"127.0.0.1/32"},
-		},
-		Database: DatabaseConfig{
-			Engine: "mysql",
-			MySQL:  MySQLConfig{Host: "mysql", Database: "ct_system", User: "root"},
-		},
-		Security: SecurityConfig{SessionSecret: "test-session-secret"},
-	}
+	cfg := baseConfig()
+	cfg.Proxy = ProxyConfig{Enabled: false, TrustedHops: 99, TrustedCIDRs: []string{"127.0.0.1/32"}}
 
 	if err := validate(cfg); err != nil {
 		t.Fatalf("expected validate() to skip proxy.trusted_hops when proxy.enabled=false, got error: %v", err)

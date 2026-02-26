@@ -53,10 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer logger.Close()
-	logger.Info().
-		Str("app", cfg.App.Name).
-		Str("version", cfg.App.Version).
-		Msg("Application starting")
+	logger.Info().Msg("Application starting")
 
 	// ============================================
 	// ШАГ 2.1: Инициализация Session Manager
@@ -126,6 +123,20 @@ func main() {
 	// SecurityHeadersMiddleware устанавливает HTTP заголовки безопасности
 	// (X-Frame-Options, CSP, X-XSS-Protection и т.д.)
 	r.Use(middleware.SecurityHeadersMiddleware())
+	if cfg.Security.CSRF.Enabled {
+		r.Use(middleware.CSRFMiddleware(
+			cfg.Security.CSRF.Secret,
+			cfg.Security.CSRF.CookieName,
+			cfg.Security.Session.CookieSecure || cfg.Server.TLS.Enabled,
+			cfg.Security.CSRF.HeaderName,
+			cfg.Security.CSRF.TrustedOrigins,
+		))
+		logger.Info().
+			Str("csrf_cookie_name", cfg.Security.CSRF.CookieName).
+			Str("csrf_header_name", cfg.Security.CSRF.HeaderName).
+			Int("csrf_trusted_origins", len(cfg.Security.CSRF.TrustedOrigins)).
+			Msg("CSRF middleware enabled")
+	}
 
 	// ============================================
 	// ШАГ 9: Регистрация контроллеров и маршрутов

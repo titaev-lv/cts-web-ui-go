@@ -55,19 +55,19 @@ var (
 // Вызывается один раз при старте приложения (в main.go).
 func Init() {
 	cfg := config.Get()
-	defaultSecureCookies := cfg.Security.SessionCookieSecure || cfg.Server.TLS.Enabled
+	defaultSecureCookies := cfg.Security.Session.CookieSecure || cfg.Server.TLS.Enabled
 
 	// Создаём хранилище сессий на основе cookies
 	// Секретный ключ берётся из конфигурации
-	store := sessions.NewCookieStore([]byte(cfg.Security.SessionSecret))
+	store := sessions.NewCookieStore([]byte(cfg.Security.Session.Secret))
 
 	// Настраиваем параметры cookies для безопасности
 	store.Options = &sessions.Options{
-		Path:     "/",                                                 // Cookie доступен для всего сайта
-		MaxAge:   cfg.Security.SessionMaxAge,                          // Время жизни сессии (по умолчанию 24 часа)
-		HttpOnly: cfg.Security.SessionCookieHTTPOnly,                  // Запретить доступ через JavaScript (защита от XSS)
-		Secure:   defaultSecureCookies,                                // Базовый флаг; для proxy режима уточняется per-request
-		SameSite: getSameSiteMode(cfg.Security.SessionCookieSameSite), // Политика SameSite
+		Path:     "/",                                                  // Cookie доступен для всего сайта
+		MaxAge:   cfg.Security.Session.MaxAge,                          // Время жизни сессии (по умолчанию 24 часа)
+		HttpOnly: cfg.Security.Session.CookieHTTPOnly,                  // Запретить доступ через JavaScript (защита от XSS)
+		Secure:   defaultSecureCookies,                                 // Базовый флаг; для proxy режима уточняется per-request
+		SameSite: getSameSiteMode(cfg.Security.Session.CookieSameSite), // Политика SameSite
 	}
 
 	// Создаём SessionManager
@@ -126,7 +126,7 @@ func GetSessionManager() *SessionManager {
 func (sm *SessionManager) GetSession(r *http.Request, w http.ResponseWriter) (*sessions.Session, error) {
 	// Получаем сессию по имени из конфигурации
 	// Если сессии нет, создаётся новая
-	session, err := sm.store.Get(r, sm.config.Security.SessionCookieName)
+	session, err := sm.store.Get(r, sm.config.Security.Session.CookieName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
@@ -198,7 +198,7 @@ func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *
 //	    // пользователь авторизован
 //	}
 func (sm *SessionManager) GetUser(r *http.Request) (*models.User, bool, error) {
-	session, err := sm.store.Get(r, sm.config.Security.SessionCookieName)
+	session, err := sm.store.Get(r, sm.config.Security.Session.CookieName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -270,7 +270,7 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   secureCookies,
-		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
+		SameSite: getSameSiteMode(sm.config.Security.Session.CookieSameSite),
 	})
 
 	http.SetCookie(w, &http.Cookie{
@@ -280,7 +280,7 @@ func (sm *SessionManager) ClearUser(r *http.Request, w http.ResponseWriter) erro
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   secureCookies,
-		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
+		SameSite: getSameSiteMode(sm.config.Security.Session.CookieSameSite),
 	})
 
 	// Сохраняем сессию (это удалит cookie)
@@ -310,7 +310,7 @@ func (sm *SessionManager) SetRememberMeCookies(r *http.Request, w http.ResponseW
 	secureCookies := sm.isSecureRequest(r)
 
 	// Вычисляем время истечения (как в PHP: +7 дней)
-	expires := time.Now().Add(time.Duration(sm.config.Security.RememberMeDays) * 24 * time.Hour)
+	expires := time.Now().Add(time.Duration(sm.config.Security.Session.RememberMeDays) * 24 * time.Hour)
 
 	// Устанавливаем cookie "Login" (как в PHP: setcookie("Login", $login, ...))
 	http.SetCookie(w, &http.Cookie{
@@ -320,7 +320,7 @@ func (sm *SessionManager) SetRememberMeCookies(r *http.Request, w http.ResponseW
 		Expires:  expires,
 		HttpOnly: true, // Защита от XSS
 		Secure:   secureCookies,
-		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
+		SameSite: getSameSiteMode(sm.config.Security.Session.CookieSameSite),
 	})
 
 	// Устанавливаем cookie "CTToken" (как в PHP: setcookie("CTToken", $h, ...))
@@ -331,12 +331,12 @@ func (sm *SessionManager) SetRememberMeCookies(r *http.Request, w http.ResponseW
 		Expires:  expires,
 		HttpOnly: true, // Защита от XSS
 		Secure:   secureCookies,
-		SameSite: getSameSiteMode(sm.config.Security.SessionCookieSameSite),
+		SameSite: getSameSiteMode(sm.config.Security.Session.CookieSameSite),
 	})
 }
 
 func (sm *SessionManager) isSecureRequest(r *http.Request) bool {
-	if sm.config.Security.SessionCookieSecure || sm.config.Server.TLS.Enabled {
+	if sm.config.Security.Session.CookieSecure || sm.config.Server.TLS.Enabled {
 		return true
 	}
 	if r == nil || !sm.config.Proxy.Enabled || !sm.config.Proxy.TrustForwardHeaders {

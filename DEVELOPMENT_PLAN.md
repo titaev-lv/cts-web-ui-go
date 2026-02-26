@@ -7,7 +7,7 @@
 
 **Статус восстановления:**
 - ✅ Восстановлен рабочий каркас и основные модули (auth, users, groups, exchanges, exchange accounts)
-- 🔴 Не восстановлены бизнес-модули (positions, market analysis, daemon, coins)
+- 🔴 Не восстановлены бизнес-модули (positions, market analysis, coins)
 - 🔴 Первая задача: унификация логирования с hsm-service (slog + JSON + stdout + file + lumberjack)
 
 ---
@@ -58,7 +58,7 @@
 │  └─────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │                     Controllers (API)                       ││
-│  │  Users│Groups│Exchanges│Positions│Market│Daemon│Coins       ││
+│  │  Users│Groups│Exchanges│Positions│Market│Coins              ││
 │  └─────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │                     Services Layer                          ││
@@ -86,7 +86,7 @@
 |----------|---------------|
 | **Библиотека** | ✅ `log/slog` (stdlib) |
 | **Формат** | ✅ JSON / Text через `slog` handlers |
-| **Stdout вывод** | ✅ Да (`output: stdout|file|both`) |
+| **Stdout вывод** | ✅ Да (`error` через `output`, `access/audit` через `*_to_stdout`) |
 | **Ротация** | ✅ `lumberjack` |
 | **Access/Error разделение** | ✅ `access.log` + `error.log` |
 | **Audit log** | ✅ `audit.log` + `AuditLogMiddleware` |
@@ -215,10 +215,10 @@ resp, err := http.DefaultClient.Do(req)
 docker logs ct-system-web-ui-1 | head -20
 
 # Проверить наличие файлов
-ls -lh /app/logs/
+ls -lh /var/log/web-ui/
 
 # Проверить ротацию
-ls -lh /app/logs/access.log* /app/logs/error.log*
+ls -lh /var/log/web-ui/access.log* /var/log/web-ui/error.log*
 ```
 
 ### 📋 Чек-лист реализации
@@ -319,7 +319,6 @@ www-go/
 │       ├── exchanges/
 │       ├── positions/
 │       ├── market/
-│       ├── daemon/
 │       └── coins/
 ├── config/
 │   └── config.yaml                 # Application config
@@ -380,9 +379,12 @@ require (
 logging:
     level: "info"            # info, debug, warn, error
     format: "json"           # json или text
-    output: "both"           # stdout, file, both
-    error_path: "/app/logs/error.log"
-    access_path: "/app/logs/access.log"
+    output: "both"           # legacy fallback для stdout/file маршрутизации
+    error_path: "/var/log/web-ui/error.log"
+    access_path: "/var/log/web-ui/access.log"
+    access_to_stdout: true
+    out_request_to_stdout: true  # зарезервировано (поток out_request пока не выделен)
+    audit_to_stdout: true
     max_size_mb: 100          # MB
     max_backups: 5            # старые файлы
     max_age_days: 30          # дни
@@ -559,31 +561,22 @@ POST /market_analysis/ajax_direct_exs
 
 ---
 
-### Фаза 7: Daemon & Coins Management (1 неделя)
+### Фаза 7: Coins Management (1 неделя)
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 7.1 | Daemon Model и Service | ☐ |
-| 7.2 | Daemon Controller (Start, Stop, Status) | ☐ |
-| 7.3 | Daemon Launcher (запуск внешнего процесса) | ☐ |
-| 7.4 | Coin Model и Repository | ☐ |
-| 7.5 | Coin Controller (обновление списка) | ☐ |
-| 7.6 | CoinMarketCap API Integration | ☐ |
-| 7.7 | UI Templates (Daemon, Coins) | ☐ |
+| 7.1 | Coin Model и Repository | ☐ |
+| 7.2 | Coin Controller (обновление списка) | ☐ |
+| 7.3 | CoinMarketCap API Integration | ☐ |
+| 7.4 | UI Templates (Coins) | ☐ |
 
 **API Endpoints:**
 ```
-GET  /daemon/                    → Страница управления демоном
-POST /daemon/ajax_start
-POST /daemon/ajax_stop
-GET  /daemon/ajax_check_status
-GET  /daemon/ajax_daemon_stat
-
 GET  /coins/                     → Страница монет
 POST /coins/ajax_update_coins
 ```
 
-**Результат:** Управление демоном и монетами
+**Результат:** Управление монетами
 
 ---
 
@@ -764,7 +757,7 @@ type Position struct {
 | 4 | Exchanges | 1 неделя | 5 нед |
 | 5 | Positions | 1-2 недели | 7 нед |
 | 6 | Market Analysis | 1 неделя | 8 нед |
-| 7 | Daemon & Coins | 1 неделя | 9 нед |
+| 7 | Coins | 1 неделя | 9 нед |
 | 8 | Security & Polish | 1 неделя | 10 нед |
 
 **Общий срок: ~10 недель (2.5 месяца)**

@@ -52,7 +52,13 @@ func Init() error {
 		auditPath = defaultAuditPath(errorPath)
 	}
 
-	errorWriter, err := buildWriter(logCfg.Output, errorPath, logCfg.MaxSizeMB, logCfg.MaxBackups, logCfg.MaxAgeDays, logCfg.Compress)
+	defaultToStdout := strings.EqualFold(logCfg.Output, "stdout") || strings.EqualFold(logCfg.Output, "both")
+	writeToFile := strings.EqualFold(logCfg.Output, "file") || strings.EqualFold(logCfg.Output, "both")
+	if strings.TrimSpace(logCfg.Output) == "" {
+		writeToFile = true
+	}
+
+	errorWriter, err := buildWriter(writeToFile, defaultToStdout, errorPath, logCfg.MaxSizeMB, logCfg.MaxBackups, logCfg.MaxAgeDays, logCfg.Compress)
 	if err != nil {
 		return fmt.Errorf("init error logger: %w", err)
 	}
@@ -61,16 +67,17 @@ func Init() error {
 	accessMaxBackups := logCfg.AccessMaxBackups
 	accessMaxAge := logCfg.AccessMaxAgeDays
 	if accessMaxSize <= 0 {
-		accessMaxSize = 50
+		accessMaxSize = logCfg.MaxSizeMB
 	}
 	if accessMaxBackups <= 0 {
-		accessMaxBackups = 10
+		accessMaxBackups = logCfg.MaxBackups
 	}
 	if accessMaxAge <= 0 {
-		accessMaxAge = 7
+		accessMaxAge = logCfg.MaxAgeDays
 	}
 
-	accessWriter, err := buildWriter(logCfg.Output, accessPath, accessMaxSize, accessMaxBackups, accessMaxAge, logCfg.Compress)
+	accessToStdout := boolPtrOrDefault(logCfg.AccessToStdout, defaultToStdout)
+	accessWriter, err := buildWriter(writeToFile, accessToStdout, accessPath, accessMaxSize, accessMaxBackups, accessMaxAge, logCfg.Compress)
 	if err != nil {
 		return fmt.Errorf("init access logger: %w", err)
 	}
@@ -79,23 +86,24 @@ func Init() error {
 	auditMaxBackups := logCfg.AuditMaxBackups
 	auditMaxAge := logCfg.AuditMaxAgeDays
 	if auditMaxSize <= 0 {
-		auditMaxSize = 100
+		auditMaxSize = logCfg.MaxSizeMB
 	}
 	if auditMaxBackups <= 0 {
-		auditMaxBackups = 5
+		auditMaxBackups = logCfg.MaxBackups
 	}
 	if auditMaxAge <= 0 {
-		auditMaxAge = 30
+		auditMaxAge = logCfg.MaxAgeDays
 	}
 
-	auditWriter, err := buildWriter(logCfg.Output, auditPath, auditMaxSize, auditMaxBackups, auditMaxAge, logCfg.Compress)
+	auditToStdout := boolPtrOrDefault(logCfg.AuditToStdout, defaultToStdout)
+	auditWriter, err := buildWriter(writeToFile, auditToStdout, auditPath, auditMaxSize, auditMaxBackups, auditMaxAge, logCfg.Compress)
 	if err != nil {
 		return fmt.Errorf("init audit logger: %w", err)
 	}
 
 	errorLogger = slog.New(buildHandler(logCfg.Format, errorWriter))
 	accessLogger = slog.New(buildAccessHandler(logCfg.Format, accessWriter))
-	auditLogger = slog.New(buildHandler(logCfg.Format, auditWriter))
+	auditLogger = slog.New(buildAuditHandler(logCfg.Format, auditWriter))
 	if errorLogger != nil {
 		slog.SetDefault(errorLogger)
 	}
@@ -298,6 +306,20 @@ func buildAccessHandler(format string, writer io.Writer) slog.Handler {
 	}
 }
 
+func buildAuditHandler(format string, writer io.Writer) slog.Handler {
+	opts := &slog.HandlerOptions{
+		Level:       logLevel,
+		ReplaceAttr: replaceAuditAttr,
+	}
+
+	switch strings.ToLower(format) {
+	case "text":
+		return slog.NewTextHandler(writer, opts)
+	default:
+		return slog.NewJSONHandler(writer, opts)
+	}
+}
+
 func parseLevel(level string) slog.Level {
 	switch strings.ToLower(level) {
 	case "debug":
@@ -313,15 +335,14 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
-func buildWriter(output string, filePath string, maxSize int, maxBackups int, maxAge int, compress bool) (io.Writer, error) {
+func buildWriter(writeToFile bool, toStdout bool, filePath string, maxSize int, maxBackups int, maxAge int, compress bool) (io.Writer, error) {
 	var writers []io.Writer
 
-	switch strings.ToLower(output) {
-	case "stdout", "both":
+	if toStdout {
 		writers = append(writers, os.Stdout)
 	}
 
-	if strings.ToLower(output) == "file" || strings.ToLower(output) == "both" {
+	if writeToFile {
 		if filePath == "" {
 			return nil, fmt.Errorf("log file path is empty")
 		}
@@ -380,6 +401,13 @@ func defaultAuditPath(errorPath string) string {
 	return filepath.Join(dir, "audit.log")
 }
 
+func boolPtrOrDefault(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
 func replaceTimeAttr(_ []string, attr slog.Attr) slog.Attr {
 	if attr.Key != slog.TimeKey {
 		return attr
@@ -392,7 +420,15 @@ func replaceTimeAttr(_ []string, attr slog.Attr) slog.Attr {
 
 func replaceAccessAttr(groups []string, attr slog.Attr) slog.Attr {
 	attr = replaceTimeAttr(groups, attr)
-	if attr.Key == slog.MessageKey || attr.Key == "module" {
+	if attr.Key == slog.MessageKey || attr.Key == "module" || attr.Key == slog.LevelKey {
+		return slog.Attr{}
+	}
+	return attr
+}
+
+func replaceAuditAttr(groups []string, attr slog.Attr) slog.Attr {
+	attr = replaceTimeAttr(groups, attr)
+	if attr.Key == slog.LevelKey {
 		return slog.Attr{}
 	}
 	return attr

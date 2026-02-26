@@ -43,8 +43,8 @@ func Connect() {
 	cfg := config.Get()
 
 	// Проверяем, что используется MySQL (Oracle пока не поддерживается)
-	if cfg.Database.Engine != "mysql" {
-		log.Fatalf("Unsupported database engine: %s", cfg.Database.Engine)
+	if cfg.Databases.System.Engine != "mysql" {
+		log.Fatalf("Unsupported databases.system.engine: %s", cfg.Databases.System.Engine)
 	}
 
 	// Получаем строку подключения (Data Source Name)
@@ -67,28 +67,29 @@ func Connect() {
 	// Пул соединений - это набор готовых соединений с БД, которые переиспользуются.
 	// Это повышает производительность, т.к. не нужно каждый раз устанавливать новое соединение.
 
-	mysqlCfg := cfg.Database.MySQL
+	mysqlCfg := cfg.Databases.System.MySQL
+	poolCfg := mysqlCfg.Pool
 
 	// SetMaxOpenConns - максимальное количество открытых соединений одновременно
 	// Если все соединения заняты, новые запросы будут ждать освобождения
 	// Рекомендуется: количество CPU * 2 + количество дисковых операций
-	DB.SetMaxOpenConns(mysqlCfg.MaxOpenConns)
+	DB.SetMaxOpenConns(poolCfg.MaxOpenConns)
 
 	// SetMaxIdleConns - максимальное количество неактивных соединений в пуле
 	// Эти соединения готовы к использованию, но не выполняют запросы
 	// Должно быть меньше MaxOpenConns
-	DB.SetMaxIdleConns(mysqlCfg.MaxIdleConns)
+	DB.SetMaxIdleConns(poolCfg.MaxIdleConns)
 
 	// SetConnMaxLifetime - максимальное время жизни соединения
 	// После этого времени соединение будет закрыто и создано новое
 	// Это помогает избежать проблем с "мёртвыми" соединениями
 	// Например, если MySQL сервер перезапустился, старые соединения станут невалидными
-	DB.SetConnMaxLifetime(mysqlCfg.ConnMaxLifetime)
+	DB.SetConnMaxLifetime(poolCfg.ConnMaxLifetime)
 
 	// SetConnMaxIdleTime - максимальное время простоя соединения в пуле
 	// Если соединение не использовалось N времени, оно будет закрыто
 	// Это экономит ресурсы сервера БД
-	DB.SetConnMaxIdleTime(mysqlCfg.ConnMaxIdleTime)
+	DB.SetConnMaxIdleTime(poolCfg.ConnMaxIdleTime)
 
 	// ============================================
 	// Проверка соединения
