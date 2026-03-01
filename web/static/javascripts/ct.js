@@ -38,7 +38,28 @@ $(function () {
 });
 
 $(document).ready(function() {
-    
+	if (typeof PNotify !== 'undefined') {
+		PNotify.prototype.options.styling = "fontawesome";
+		$.extend(true, PNotify.prototype.options, {
+			shadow: false,
+			min_height: "65px",
+			stack: {
+				spacing1: 15,
+				spacing2: 15
+			}
+		});
+		$.extend(PNotify.styling.fontawesome, {
+			container: "notification",
+			notice: "notification-warning",
+			info: "notification-info",
+			success: "notification-success",
+			error: "notification-danger",
+			notice_icon: "fa fa-exclamation",
+			info_icon: "fa fa-info",
+			success_icon: "fa fa-check",
+			error_icon: "fa fa-times"
+		});
+	}
 });
 
 function validateEmptyFormFieldsExample(form) {

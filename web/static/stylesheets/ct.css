@@ -110,6 +110,60 @@ th {
     z-index: 100002;
 }
 
+.ui-pnotify .ui-pnotify-text,
+.ui-pnotify .notification .ui-pnotify-text {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.ui-pnotify,
+.ui-pnotify .ui-pnotify-container,
+.ui-pnotify .notification {
+    height: auto !important;
+    max-height: none !important;
+}
+
+.ui-pnotify .ui-pnotify-container.notification,
+.ui-pnotify .notification.ui-pnotify-container,
+.ui-pnotify .notification {
+    min-height: 65px !important;
+}
+
+.ui-pnotify .ui-pnotify-container,
+.ui-pnotify.stack-bar-top .notification,
+.ui-pnotify.stack-bar-bottom .notification {
+    overflow: visible;
+}
+
+.ui-pnotify.stack-bar-top,
+.ui-pnotify.stack-bar-bottom {
+    overflow: visible !important;
+}
+
+.ui-pnotify.stack-bar-top .notification,
+.ui-pnotify.stack-bar-bottom .notification {
+    display: block !important;
+    min-height: 66px;
+    padding-bottom: 12px;
+}
+
+.ui-pnotify .notification .ui-pnotify-title,
+.ui-pnotify .notification .ui-pnotify-text {
+    overflow: visible !important;
+}
+
+.ui-pnotify .notification .ui-pnotify-title,
+.ui-pnotify .notification .ui-pnotify-text,
+.ui-pnotify .ui-pnotify-closer,
+.ui-pnotify .ui-pnotify-sticker {
+    line-height: 1.45 !important;
+    box-sizing: border-box !important;
+}
+
+.ui-pnotify .notification .ui-pnotify-text {
+    padding-bottom: 2px !important;
+}
+
 @media only screen and (min-width: 900px) {
     .layer {
         background-image: url(/assets/images/loading-gif2.gif);

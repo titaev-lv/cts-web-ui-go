@@ -2,6 +2,12 @@ $(document).ready(function() {
     //read get parameter position ID
     const params = new URLSearchParams(window.location.search);
     var position_id = parseInt(params.get("position"));
+
+  if (!isNaN(position_id) && position_id > 0) {
+    $('#add_trans_position').val(position_id);
+    $('#import_trans_csv_position').val(position_id);
+    $('#edit_trans_position').val(position_id);
+  }
     
     getPosition(position_id);
     
@@ -48,12 +54,12 @@ $(document).ready(function() {
                 { "data":null, render:function(){return "<input type='checkbox' class='t-row' value=''/>";}}, //0
                 { "data": "ID" },    //1             
                 { "data": "TYPE"},            //2
-                { "data": "PRICE"},   //3
-                { "data": "VOLUME"},     //4
-                { "data": "FEE_BASE"},          //5
-                { "data": "FEE"},  //6
-                { "data": "FUNDING"},   //7
-                { "data": "TRANS_DATE"}  //8
+              { "data": "PRICE", "render": function(data, type){ return type === 'display' ? formatDisplayNumber(data, 8) : data; }},   //3
+              { "data": "VOLUME", "render": function(data, type){ return type === 'display' ? formatDisplayNumber(data, 8) : data; }},     //4
+              { "data": "FEE_BASE", "render": function(data, type){ return type === 'display' ? formatDisplayNumber(data, 8) : data; }},          //5
+              { "data": "FEE", "render": function(data, type){ return type === 'display' ? formatDisplayNumber(data, 8) : data; }},  //6
+              { "data": "FUNDING", "render": function(data, type){ return type === 'display' ? formatDisplayNumber(data, 8) : data; }},   //7
+              { "data": "TRANS_DATE", "render": function(data, type){ return type === 'display' ? formatDateTimeNoMillis(data) : data; }}  //8
             ],
             //"pagingType": "first_last_numbers",
             "language": {
@@ -102,6 +108,7 @@ $(document).ready(function() {
             },
             "order": [[ 1, 'desc' ]],
             "drawCallback": function( settings ) {
+              resetSelectedTransactionsCalc();
             },     
         } );
         //Hide field search
@@ -154,6 +161,87 @@ $(document).ready(function() {
 
 let exchaange;
 
+function resetSelectedTransactionsCalc() {
+  $('#checkallTrans').prop('checked', false);
+  $('#pq').text('');
+}
+
+function parseAjaxResponse(response) {
+  if (response && typeof response === 'object') {
+    return response;
+  }
+  if (typeof response === 'string') {
+    return JSON.parse(response);
+  }
+  return {};
+}
+
+function trimTrailingZeros(value) {
+  if (typeof value !== 'string' || value.indexOf('e') !== -1 || value.indexOf('E') !== -1) {
+    return value;
+  }
+  return value
+    .replace(/(\.\d*?[1-9])0+$/,'$1')
+    .replace(/\.0+$/,'')
+    .replace(/\.$/,'');
+}
+
+function formatAdaptivePrice(value) {
+  if (value === null || value === undefined || value === '' || value === '—' || value === '-') {
+    return '—';
+  }
+
+  const numeric = Number(String(value).replace(/\s+/g, '').replace(',', '.'));
+  if (!isFinite(numeric)) {
+    return String(value);
+  }
+
+  const abs = Math.abs(numeric);
+  if (abs === 0) {
+    return '0';
+  }
+
+  let formatted;
+  if (abs >= 1) {
+    formatted = numeric.toFixed(4);
+  } else if (abs >= 0.000001) {
+    formatted = numeric.toPrecision(6);
+  } else {
+    formatted = numeric.toExponential(3);
+  }
+
+  return trimTrailingZeros(formatted);
+}
+
+function formatDateTimeNoMillis(value) {
+  if (isPlaceholderValue(value)) {
+    return '—';
+  }
+  const raw = String(value).trim();
+  return raw.replace(/(\d{2}:\d{2}:\d{2})\.\d+$/, '$1');
+}
+
+function formatDisplayNumber(value, decimals) {
+  if (isPlaceholderValue(value)) {
+    return '—';
+  }
+
+  const normalized = String(value).replace(/\s+/g, '').replace(',', '.');
+  const numeric = Number(normalized);
+  if (!isFinite(numeric)) {
+    return String(value);
+  }
+
+  const scale = Number.isFinite(decimals) ? decimals : 8;
+  return trimTrailingZeros(numeric.toFixed(scale));
+}
+
+function isPlaceholderValue(value) {
+  if (value == null) return true;
+  const normalized = String(value).trim();
+  return normalized === '' || normalized === '—' || normalized === '-';
+}
+
 function getPosition(position_id) {
     if(position_id) {
         var formData = new FormData();
@@ -168,7 +256,7 @@ function getPosition(position_id) {
                 xhr.setRequestHeader("Content-type", "multipart/form-data");
             },*/
             success: function(response) { //Данные отправлены успешно
-                var ret = JSON.parse(response);
+              var ret = parseAjaxResponse(response);
                 if(ret.error !== false && ret.error !== '') {
                     new PNotify({
                             title: 'Error',
@@ -186,16 +274,15 @@ function getPosition(position_id) {
                     $('#p_exchange_name').text(ret.EXCHANGE_NAME);
                     $('#p_market').text(ret.MARKET_TYPE);
                     $('#p_status').text(ret.STATUS);
-                    $('#p_date_open').text(ret.OPENED);
-                    $('#import_trans_csv_start_date').val(ret.OPENED);
-                    $('#p_date_close').text(ret.CLOSED);
-                    $('#p_amount').text(ret.AMOUNT);
-                    if(ret.AVG_PRICE.length === 0) $('#p_avg_price').text("—");
-                    else $('#p_avg_price').text(ret.AVG_PRICE);
-                    $('#p_fee_base_curr').text(ret.FEE_BASE_CURR);
-                    $('#p_fee_quote_curr').text(ret.FEE_QUOTE_CURR);
-                    $('#p_funding').text(ret.FUNDING);
-                    $('#p_total_realized_pnl').text(ret.TOTAL_REALIZED_PNL);
+                    $('#p_date_open').text(formatDateTimeNoMillis(ret.OPENED));
+                    $('#import_trans_csv_start_date').val(formatDateTimeNoMillis(ret.OPENED));
+                    $('#p_date_close').text(formatDateTimeNoMillis(ret.CLOSED));
+                    $('#p_amount').text(formatDisplayNumber(ret.AMOUNT, 8));
+                    $('#p_avg_price').text(formatAdaptivePrice(ret.AVG_PRICE));
+                    $('#p_fee_base_curr').text(formatDisplayNumber(ret.FEE_BASE_CURR, 8));
+                    $('#p_fee_quote_curr').text(formatDisplayNumber(ret.FEE_QUOTE_CURR, 8));
+                    $('#p_funding').text(formatDisplayNumber(ret.FUNDING, 8));
+                    $('#p_total_realized_pnl').text(formatDisplayNumber(ret.TOTAL_REALIZED_PNL, 8));
                     $('#p_trans_count').text(ret.TRANS_COUNT);
                     
                     if(ret.STATUS == 'OPEN') {
@@ -330,6 +417,32 @@ function calcAVGPriceChecked() {
             }
         }
     });
+
+    function calcPositionEpsilon(items) {
+      let minStep = Infinity;
+      for (const tx of items) {
+        const vol = Math.abs(tx.trans_volume || 0);
+        const feeBase = Math.abs(tx.trans_fee_base || 0);
+        if (vol > 0 && vol < minStep) minStep = vol;
+        if (feeBase > 0 && feeBase < minStep) minStep = feeBase;
+      }
+
+      if (!isFinite(minStep)) {
+        return 1e-10;
+      }
+
+      return Math.max(1e-12, Math.min(1e-8, minStep / 1000));
+    }
+
+    const positionEpsilon = calcPositionEpsilon(dt);
+
+    function normalizeNearZero(value) {
+      if (Math.abs(value) <= positionEpsilon) {
+        return 0;
+      }
+      return value;
+    }
+
     //sort
     dt.sort((a,b) => a.trans_id - b.trans_id);
     
@@ -340,11 +453,21 @@ function calcAVGPriceChecked() {
             case 'SPOT':
                 if(obj.trans_volume > 0) {
                     if(i===0){
-                        avg = (obj.trans_price * obj.trans_volume) / (obj.trans_volume - obj.trans_fee_base);
+                    const baseVolume = obj.trans_volume - obj.trans_fee_base;
+                    if (baseVolume !== 0) {
+                      avg = (obj.trans_price * obj.trans_volume) / baseVolume;
+                    } else {
+                      avg = 0;
+                    }
                     }
                     else {
                         if((pos + obj.trans_volume - obj.trans_fee_base) !== 0) {
-                            avg = (pos * avg + (obj.trans_volume - obj.trans_fee_base)*((obj.trans_price * obj.trans_volume)/(obj.trans_volume - obj.trans_fee_base)) - rpnl) / (pos + obj.trans_volume - obj.trans_fee_base);
+                      const baseVolume = obj.trans_volume - obj.trans_fee_base;
+                      if (baseVolume !== 0) {
+                        avg = (pos * avg + baseVolume*((obj.trans_price * obj.trans_volume)/baseVolume) - rpnl) / (pos + obj.trans_volume - obj.trans_fee_base);
+                      } else {
+                        avg = 0;
+                      }
                         }
                         else {
                             avg = 0;
@@ -429,12 +552,15 @@ function calcAVGPriceChecked() {
                 }
                 pos = pos + obj.trans_volume;
         }
+
         i++;
     }
     if(se) {
+      const finalPos = normalizeNearZero(pos);
+      const formattedAvg = finalPos === 0 ? '—' : formatAdaptivePrice(avg);
         let insrt = 'Selected transactions: \
-                        Position = <b><span id="pq_pos">'+pos+'</span></b>&nbsp;&nbsp;&nbsp; \
-                        AVG Price = <b><span id="pq_avg">'+avg+'</span></b>&nbsp;&nbsp;&nbsp; \
+                        Position = <b><span id="pq_pos">'+finalPos+'</span></b>&nbsp;&nbsp;&nbsp; \
+              AVG Price = <b><span id="pq_avg">'+formattedAvg+'</span></b>&nbsp;&nbsp;&nbsp; \
                         PnL = <b><span id="pq_pnl"></span></b>';
         if(rpnl !== 0) {
             insrt = 'Selected transactions: Realized PnL = <b>'+rpnl+'</b>';
@@ -481,7 +607,7 @@ $('#close-pos-btn').on('click', function(e) {
             xhr.setRequestHeader("Content-type", "multipart/form-data");
         },*/
         success: function(response) { //Данные отправлены успешно
-            var ret = JSON.parse(response);
+          var ret = parseAjaxResponse(response);
             //console.log(ret);
             if(ret.error !== false && ret.error !== '') {
                 new PNotify({
@@ -664,7 +790,7 @@ $('#delete_pos_confirm').on('click', function(e) {
             xhr.setRequestHeader("Content-type", "multipart/form-data");
         },*/
         success: function(response) { //Данные отправлены успешно
-            var ret = JSON.parse(response);
+          var ret = parseAjaxResponse(response);
             //console.log(ret);
             if(ret.error !== false && ret.error !== '') {
                 new PNotify({
@@ -703,6 +829,237 @@ $('#delete_pos_confirm').on('click', function(e) {
 });
 
 //Edit Transaction
+$('#edit-trans-btn').on('click', function(e) {
+  e.preventDefault();
+
+  var selectedTransactions = [];
+  var tableNodes = table.columns().rows().nodes();
+  tableNodes.toArray().forEach(function(item) {
+    if(item.cells !== undefined) {
+      const checkbox = item.firstChild.firstChild;
+      var isChecked = $(checkbox).prop('checked');
+      if(isChecked === true) {
+        const trans_id = parseInt(item.cells[1].firstChild.nodeValue.trim());
+        selectedTransactions.push(trans_id);
+      }
+    }
+  });
+
+  if(selectedTransactions.length !== 1) {
+    new PNotify({
+      title: 'Warning',
+      text: 'Please select exactly one transaction to edit',
+      type: 'warning',
+      addclass: 'stack-bar-top',
+      width: "100%"
+    });
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const position_id = parseInt(params.get("position"));
+  const trans_id = selectedTransactions[0];
+
+  if (isNaN(position_id) || position_id <= 0) {
+    new PNotify({
+      title: 'Error',
+      text: 'Position ID is invalid',
+      type: 'error',
+      addclass: 'stack-bar-top',
+      width: "100%"
+    });
+    return;
+  }
+
+  var formData = new FormData();
+  formData.append('position_id', position_id);
+  formData.append('trans_id', trans_id);
+
+  $.ajax({
+    url: "/positions_calc/position/ajax_get_trans.php",
+    type: "POST",
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(response) {
+      var ret = parseAjaxResponse(response);
+      if(ret.error !== false && ret.error !== '') {
+        new PNotify({
+          title: 'Error',
+          text: ret.error,
+          type: 'error',
+          addclass: 'stack-bar-top',
+          width: "100%"
+        });
+        return;
+      }
+
+      if(ret.success !== true) {
+        new PNotify({
+          title: 'Error',
+          text: 'Failed to load transaction data',
+          type: 'error',
+          addclass: 'stack-bar-top',
+          width: "100%"
+        });
+        return;
+      }
+
+      $('#edit_trans_id').val(ret.ID || trans_id);
+      $('#edit_trans_position').val(position_id);
+      $('#edit_trans_date').val(ret.TRANS_DATE || '');
+
+      updateTransactionTypeOptionsEdit();
+      const transType = String(ret.TYPE || '').toLowerCase() === 'funding' ? 'funding' : 'trade';
+      $('#edit_trans_type').val(transType);
+      updateTransactionEditFields();
+
+      const numericVolume = parseFloat(ret.VOLUME || 0);
+      const action = numericVolume < 0 ? 'sell' : 'buy';
+      const absVolume = Math.abs(numericVolume);
+
+      $('#edit_trans_action').val(action);
+      $('#edit_trans_price').val(Math.abs(parseFloat(ret.PRICE || 0)));
+      $('#edit_trans_volume').val(absVolume);
+      $('#edit_trans_funding').val(parseFloat(ret.FUNDING || 0));
+      $('#edit_trans_fee_quote').val(Math.abs(parseFloat(ret.FEE || 0)));
+      $('#edit_trans_fee_base').val(Math.abs(parseFloat(ret.FEE_BASE || 0)));
+      selectSpotFeesEdit();
+
+      $.magnificPopup.open({
+        items: [
+          {
+            src: '#modalForm-edit-trans',
+            type: 'inline',
+            modal: true
+          }],
+        closeOnContentClick: false,
+        closeOnBgClick: false,
+        callbacks: {
+          beforeOpen: function() {
+            if($(window).width() < 700) {
+              this.st.focus = false;
+            } else {
+              this.st.focus = '#edit_trans_type';
+            }
+          }
+        }
+      });
+    },
+    error: function (data, textStatus) {
+      if(data.status == 401) {
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+      new PNotify({
+        title: 'Error',
+        text: "Error " + data.status + " " + data.statusText,
+        type: 'error',
+        addclass: 'stack-bar-top',
+        width: "100%"
+      });
+    }
+  });
+});
+
+$('#edit_trans_button').on('click', function(e) {
+  e.preventDefault();
+  updateTransactionTypeOptionsEdit();
+
+  var isNotValid = false;
+  $("#edit-trans-form").find('input, textarea, select').each(function(e,elements) {
+    if(elements.required === true && elements.disabled === false) {
+      if(elements.value === null || elements.value === '') {
+        $(elements).addClass("err");
+        isNotValid = true;
+      }
+      else {
+        $(elements).removeClass("err");
+      }
+    }
+  });
+
+  if(isNotValid === true) {
+    new PNotify({
+      title: 'Error',
+      text: 'Required fiels is empty',
+      addclass: 'stack-bar-top',
+      type: 'error',
+      width: "100%"
+    });
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const position_id = parseInt(params.get("position"));
+  if (!isNaN(position_id) && position_id > 0) {
+    $('#edit_trans_position').val(position_id);
+  }
+
+  var formData = new FormData();
+  var data = $('#edit-trans-form').serializeArray();
+  $.each(data,function(key,input){
+     formData.append(input.name,input.value);
+  });
+
+  if (!isNaN(position_id) && position_id > 0) {
+    formData.set('edit_trans_position', position_id);
+    formData.set('position_id', position_id);
+  }
+
+  $.ajax({
+    url: "/positions_calc/position/ajax_edit_trans.php",
+    type: "POST",
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(response) {
+      var ret = parseAjaxResponse(response);
+      if(ret.error !== false && ret.error !== '') {
+        new PNotify({
+          title: 'Error',
+          text: ret.error,
+          type: 'error',
+          addclass: 'stack-bar-top',
+          width: "100%"
+        });
+      }
+      else if(ret.success === true) {
+        new PNotify({
+          text: 'Transaction updated',
+          type: 'success',
+          addclass: 'stack-bar-top',
+          width: "100%"
+        });
+        $.magnificPopup.close();
+        table.draw();
+
+        if (!isNaN(position_id) && position_id > 0) {
+          getPosition(position_id);
+        }
+
+        if(typeof exchange !== 'undefined' && exchange) {
+          var lastPrice = document.getElementById('p_last_price').innerText;
+          if(lastPrice > 0) {
+            exchange.calcAndRender(lastPrice);
+          }
+        }
+        calcAVGPriceChecked();
+      }
+    },
+    error: function (data, textStatus) {
+      if(data.status == 401) {
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+      new PNotify({
+        title: 'Error',
+        text: "Error " + data.status + " " + data.statusText,
+        type: 'error',
+        addclass: 'stack-bar-top',
+        width: "100%"
+      });
+    }
+  });
+});
 
 //Delete Transaction
 $('#del-trans-btn').on('click', function(e) {
@@ -799,7 +1156,7 @@ $('#delete_trans_confirm').on('click', function(e) {
         processData: false,
         contentType: false,
         success: function(response) {
-            var ret = JSON.parse(response);
+          var ret = parseAjaxResponse(response);
             if(ret.error !== false && ret.error !== '') {
                 new PNotify({
                     title: 'Error',
@@ -867,11 +1224,21 @@ $('#add_trans_button').on('click', function(e) {
         }
     });
     if(isNotValid === false) {
+      const params = new URLSearchParams(window.location.search);
+      const position_id = parseInt(params.get("position"));
+      if (!isNaN(position_id) && position_id > 0) {
+        $('#add_trans_position').val(position_id);
+      }
+
         var formData = new FormData();
         var data = $('#add-trans-form').serializeArray();
         $.each(data,function(key,input){
            formData.append(input.name,input.value);   
         });
+      if (!isNaN(position_id) && position_id > 0) {
+        formData.set('add_trans_position', position_id);
+        formData.set('position_id', position_id);
+      }
         $.ajax({
             url: "/positions_calc/position/ajax_create_trans.php",
             type: "POST", 
@@ -882,7 +1249,7 @@ $('#add_trans_button').on('click', function(e) {
                 xhr.setRequestHeader("Content-type", "multipart/form-data");
             },*/
             success: function(response) { //Данные отправлены успешно
-                var ret = JSON.parse(response);
+              var ret = parseAjaxResponse(response);
                 //console.log(ret);
                 if(ret.error !== false && ret.error !== '') {
                     new PNotify({
@@ -972,6 +1339,31 @@ function updateTransactionTypeOptions() {
     }
 }
 
+function updateTransactionTypeOptionsEdit() {
+  var market = document.getElementById('p_market').innerText;
+  switch(market) {
+    case 'FUTURES':
+      if ($('#edit_trans_type').find('option[value="funding"]').length === 0) {
+        $('#edit_trans_type').append('<option value="funding">FUNDING</option>');
+      }
+      if ($('#edit_trans_type').find('option[value="trade"]').length === 0) {
+        $('#edit_trans_type').append('<option value="trade">TRADE</option>');
+      }
+      break;
+    case 'SPOT':
+      if ($('#edit_trans_type').find('option[value="trade"]').length === 0) {
+        $('#edit_trans_type').append('<option value="trade">TRADE</option>');
+      }
+      if ($('#edit_trans_type').find('option[value="funding"]').length > 0) {
+        $('#edit_trans_type').find('option[value="funding"]').remove();
+      }
+      break;
+    default:
+      $('#edit_trans_type option[]').remove();
+      $('#edit_trans_type').append('<option value=""></option>');
+  }
+}
+
 function updateTransactionAddFields() {
     //read selected type
     var type = $("#add_trans_type option:selected").val();
@@ -1015,13 +1407,63 @@ function updateTransactionAddFields() {
     }
 }
 
+function updateTransactionEditFields() {
+  var type = $("#edit_trans_type option:selected").val();
+  if(type == 'funding') {
+    $('#div_edit_trans_funding').css("display","block");
+    $('#edit_trans_funding').prop('disabled', false);
+  }
+  else {
+    $('#div_edit_trans_funding').css("display","none");
+    $('#edit_trans_funding').prop('disabled', true);
+  }
+  if(type == 'trade') {
+    var market = document.getElementById('p_market').innerText;
+    $('#div_edit_trans_action').css("display","block");
+    $('#edit_trans_action').prop('disabled', false);
+    $('#div_edit_trans_price').css("display","block");
+    $('#edit_trans_price').prop('disabled', false);
+    $('#div_edit_trans_volume').css("display","block");
+    $('#edit_trans_volume').prop('disabled', false);
+    if(market == 'FUTURES') {
+      $('#div_edit_trans_fee_quote').css("display","block");
+      $('#edit_trans_fee_quote').prop('disabled', false);
+      $('#div_edit_trans_fee_base').css("display","none");
+      $('#edit_trans_fee_base').prop('disabled', true);
+    }
+    else if(market == 'SPOT') {
+      selectSpotFeesEdit();
+    }
+  }
+  else {
+    $('#div_edit_trans_action').css("display","none");
+    $('#edit_trans_action').prop('disabled', true);
+    $('#div_edit_trans_price').css("display","none");
+    $('#edit_trans_price').prop('disabled', true);
+    $('#div_edit_trans_volume').css("display","none");
+    $('#edit_trans_volume').prop('disabled', true);
+    $('#div_edit_trans_fee_quote').css("display","none");
+    $('#edit_trans_fee_quote').prop('disabled', true);
+    $('#div_edit_trans_fee_base').css("display","none");
+    $('#edit_trans_fee_base').prop('disabled', true);
+  }
+}
+
 $('#add_trans_type').on('focus mousedown', function(e) {
     // Обновляем опции перед открытием списка
     updateTransactionTypeOptions();
 });
 
+$('#edit_trans_type').on('focus mousedown', function(e) {
+  updateTransactionTypeOptionsEdit();
+});
+
 $('#add_trans_type').on('change', function(e) {
     updateTransactionAddFields();
+});
+
+$('#edit_trans_type').on('change', function(e) {
+  updateTransactionEditFields();
 });
 
 
@@ -1042,6 +1484,25 @@ function selectSpotFees() {
             $('#add_trans_fee_quote').prop('disabled', false);
         }
     }
+}
+
+function selectSpotFeesEdit() {
+  var market = document.getElementById('p_market').innerText;
+  if(market == 'SPOT') {
+    var action = $("#edit_trans_action option:selected").val();
+    if(action == 'buy') {
+      $('#div_edit_trans_fee_base').css("display","block");
+      $('#edit_trans_fee_base').prop('disabled', false);
+      $('#div_edit_trans_fee_quote').css("display","none");
+      $('#edit_trans_fee_quote').prop('disabled', true);
+    }
+    else {
+      $('#div_edit_trans_fee_base').css("display","none");
+      $('#edit_trans_fee_base').prop('disabled', true);
+      $('#div_edit_trans_fee_quote').css("display","block");
+      $('#edit_trans_fee_quote').prop('disabled', false);
+    }
+  }
 }
 
 //Create Transaction
@@ -1101,7 +1562,7 @@ $('#import_trans_csv_button').on('click', function(e) {
                 xhr.setRequestHeader("Content-type", "multipart/form-data");
             },*/
             success: function(response) { //Данные отправлены успешно
-                var ret = JSON.parse(response);
+              var ret = parseAjaxResponse(response);
                 //console.log(ret);
                 if(ret.error !== false && ret.error !== '') {
                     new PNotify({
@@ -1731,7 +2192,7 @@ function initPNL() {
   const market = $("#p_market").text().trim();
   
   // Check if we're on a position detail page
-  if (!symbol || !exchangeName || !market) {
+  if (isPlaceholderValue(symbol) || isPlaceholderValue(exchangeName) || isPlaceholderValue(market)) {
     //console.log("[PNL] Not on position detail page, skipping initialization");
     return;
   }
@@ -1742,7 +2203,12 @@ function initPNL() {
     $("body").append('<span id="p_status" style="display:none">CLOSED</span>');
   }
 
-  exchange = ExchangeFactory.create(exchangeName, market);
+  try {
+    exchange = ExchangeFactory.create(exchangeName, market);
+  } catch (err) {
+    console.warn("[PNL] Exchange initialization skipped:", err);
+    return;
+  }
 
   // always do one REST initial fetch
   exchange.fetchInitialPrice(symbol);

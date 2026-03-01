@@ -1,4 +1,53 @@
 $(document).ready(function() {
+
+    function trimTrailingZeros(value) {
+        if (typeof value !== 'string' || value.indexOf('e') !== -1 || value.indexOf('E') !== -1) {
+            return value;
+        }
+        return value
+            .replace(/(\.\d*?[1-9])0+$/,'$1')
+            .replace(/\.0+$/,'')
+            .replace(/\.$/,'');
+    }
+
+    function formatAdaptivePrice(value) {
+        if (value === null || value === undefined || value === '') {
+            return '—';
+        }
+
+        var numeric = Number(String(value).replace(/\s+/g, '').replace(',', '.'));
+        if (!isFinite(numeric)) {
+            return String(value);
+        }
+
+        var abs = Math.abs(numeric);
+        var formatted;
+
+        if (abs === 0) {
+            return '0';
+        }
+
+        if (abs >= 1) {
+            formatted = numeric.toFixed(4);
+        } else if (abs >= 0.000001) {
+            formatted = numeric.toPrecision(6);
+        } else {
+            formatted = numeric.toExponential(3);
+        }
+
+        return trimTrailingZeros(formatted);
+    }
+
+    function parseAjaxResponse(response) {
+        if (response && typeof response === 'object') {
+            return response;
+        }
+        if (typeof response === 'string') {
+            return JSON.parse(response);
+        }
+        return {};
+    }
+
     /*
     * 1. Get Position table 
     */  
@@ -50,7 +99,15 @@ $(document).ready(function() {
                 { "data": "MARKET_TYPE"},     //4
                 { "data": "STATUS"},          //5
                 { "data": "FINAL_POSITION"},  //6
-                { "data": "FINAL_AVG_PRICE"},   //7
+                {
+                    "data": "FINAL_AVG_PRICE",   //7
+                    "render": function(data, type) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+                        return formatAdaptivePrice(data);
+                    }
+                },
                 { "data": "FEE_BASE_TOTAL"},  //8
                 { "data": "FEE_TOTAL"},       //9
                 { "data": "FUNDING_TOTAL"},   //10
@@ -198,7 +255,7 @@ $(document).ready(function() {
                     xhr.setRequestHeader("Content-type", "multipart/form-data");
                 },*/
                 success: function(response) { //Данные отправлены успешно
-                    var ret = JSON.parse(response);
+                    var ret = parseAjaxResponse(response);
                     //console.log(ret);
                     if(ret.error !== false && ret.error !== '') {
                         new PNotify({
