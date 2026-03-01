@@ -48,7 +48,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// ============================================
 		// ВСЕ страницы закрыты, кроме страницы входа и обработки входа
 		public := map[string]bool{
-			"/healthz":     true, // Health endpoint для docker/k8s probes
+			"/health":      true, // Health endpoint для monitoring probes
 			"/login":       true, // Страница входа
 			"/auth/login":  true, // Обработка формы входа
 			"/favicon.ico": true, // Favicon (браузеры запрашивают автоматически)

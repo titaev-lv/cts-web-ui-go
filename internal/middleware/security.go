@@ -39,6 +39,15 @@ var (
 //	r.Use(middleware.SecurityHeadersMiddleware())
 func SecurityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		connectSrc := "'self' " +
+			"https://api.binance.com https://fapi.binance.com " +
+			"wss://stream.binance.com:9443 wss://fstream.binance.com " +
+			"https://api.bybit.com wss://stream.bybit.com " +
+			"https://api.kucoin.com https://api-futures.kucoin.com wss://ws-api-spot.kucoin.com wss://ws-api-futures.kucoin.com " +
+			"https://api.huobi.pro https://api.hbdm.com wss://api.huobi.pro wss://api.hbdm.com " +
+			"https://api.coinex.com wss://socket.coinex.com wss://perpetual.coinex.com " +
+			"https://api.poloniex.com https://futures-api.poloniex.com wss://ws.poloniex.com wss://futures-apiws.poloniex.com"
+
 		// ============================================
 		// X-Content-Type-Options: nosniff
 		// ============================================
@@ -98,7 +107,7 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 					"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
 					"img-src 'self' data: https:; "+
 					"font-src 'self' data: https://fonts.gstatic.com; "+
-					"connect-src 'self'; "+
+					"connect-src "+connectSrc+"; "+
 					"frame-ancestors 'none'")
 		} else {
 			// В режиме разработки более мягкая политика для удобства отладки
@@ -108,7 +117,7 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 					"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
 					"img-src 'self' data: https:; "+
 					"font-src 'self' data: https://fonts.gstatic.com; "+
-					"connect-src 'self'")
+					"connect-src "+connectSrc)
 		}
 
 		// ============================================
