@@ -1,0 +1,260 @@
+{{define "positions/position.html"}}
+<!doctype html>
+<html class="fixed">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.Title}} - CT-System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.css" />
+    <link rel="stylesheet" href="/assets/vendor/font-awesome/css/font-awesome.css" />
+    <link rel="stylesheet" href="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.css" />
+    <link rel="stylesheet" href="/assets/vendor/jquery-ui/css/ui-lightness/jquery-ui-1.10.4.custom.css" />
+    <link rel="stylesheet" href="/assets/vendor/select2/select2.css" />
+    <link rel="stylesheet" href="/assets/vendor/jquery-datatables-bs3/assets/css/datatables.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/theme.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/skins/default.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/theme-custom.css" />
+    <link rel="stylesheet" href="/assets/vendor/magnific-popup/magnific-popup.css" />
+    <link rel="stylesheet" href="/assets/vendor/pnotify/pnotify.custom.css" />
+    <link rel="stylesheet" href="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/ct.css" />
+
+    <script src="/assets/vendor/modernizr/modernizr.js"></script>
+    <script src="/assets/vendor/jquery/jquery-3.7.1.js"></script>
+    <script src="/assets/vendor/bootstrap/js/bootstrap.js"></script>
+
+    <style>
+        #ws_status { margin-top:20px; padding:6px 10px; border-radius:8px; border:solid 1px black; color:#000; font-family:Arial,sans-serif; width:125px; }
+        #ws_status.connecting, #ws_status.connected, #ws_status.disconnected, #ws_status.reconnecting { background:#ffffff; }
+        #ws_status.error { background:#f43f5e; }
+    </style>
+</head>
+<body>
+<section class="body">
+    <header class="header">
+        <div class="logo-container">
+            <a href="/" class="logo"><span style="color:#34495e;font-size: 200%">CT-System</span></a>
+            <div class="visible-xs toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html" data-fire-event="sidebar-left-opened">
+                <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="separator"></span>
+            <div id="userbox" class="userbox">
+                <a href="#" data-toggle="dropdown">
+                    <figure class="profile-picture"><img src="/assets/images/!logged-user.jpg" alt="" class="img-circle" /></figure>
+                    <div class="profile-info"><span class="name">{{.User.Name}} {{.User.LastName}}</span><span class="role">{{.User.Email}}</span></div>
+                </a>
+                <a role="menuitem" tabindex="-1" href="/auth/logout"><i class="fa fa-power-off"></i> Logoff</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="inner-wrapper">
+        <aside id="sidebar-left" class="sidebar-left">
+            <div class="sidebar-header"><div class="sidebar-toggle hidden-xs" data-toggle-class="sidebar-left-collapsed" data-target="html" data-fire-event="sidebar-left-toggle"><i class="fa fa-bars" aria-label="Toggle sidebar"></i></div></div>
+            <div class="nano"><div class="nano-content">
+                <nav id="menu" class="nav-main" role="navigation">
+                    <ul class="nav nav-main">
+                        <li><a href="/"><i class="fa fa-home"></i><span>Home</span></a></li>
+                        <li><a href="/positions_calc/"><i class="fa fa-cubes"></i><span>Trade Positions</span></a></li>
+                        <li><a href="/exchange_accounts/"><i class="fa fa-bank"></i><span>Exchange Accounts</span></a></li>
+                        {{if .User.IsAdmin}}
+                        <li><a href="/exchange_manage/"><i class="fa fa-cog"></i><span>Exchange Manage</span></a></li>
+                        <li><a href="/users/"><i class="fa fa-user"></i><span>Users</span></a></li>
+                        <li><a href="/groups/"><i class="fa fa-users"></i><span>User's Groups</span></a></li>
+                        {{end}}
+                    </ul>
+                </nav>
+            </div></div>
+        </aside>
+
+        <section role="main" class="content-body">
+            <br><br>
+            <header class="page-header">
+                <h2>Trade Positions Calculator</h2>
+                <div class="right-wrapper pull-right">
+                    <ol class="breadcrumbs">
+                        <li><a href="/positions_calc/"><span>Positions</span></a></li>
+                        <li><a href="/positions_calc/position/"><span>Position</span></a></li>
+                    </ol>
+                    <a class="sidebar-right-toggle" data-open="sidebar-right"><i class="fa fa-chevron-left"></i></a>
+                </div>
+            </header>
+
+            <section class="panel">
+                <div class="panel-body">
+                    <div class="invoice">
+                        <header class="clearfix"><div class="row"><div class="col-sm-6 mt-md"><h2 class="h2 mt-none mb-sm text-dark text-bold">Position #<span id="p_position_id"> -</span></h2></div></div></header>
+                        <div class="bill-info">
+                            <div class="row">
+                                <div class="col-12 col-sm-12 col-md-6 col-lg-3 col-xl-3"><div class="bill-data text-left">
+                                    <p class="mb-none"><span class="h5 text-dark">Contract Name:</span><span class="h5 value" id="p_contract_name">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Exchange:</span><span class="h5 value" id="p_exchange_name">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Market:</span><span class="h5 value" id="p_market">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Status:</span><span class="h5 value" id="p_status">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Open Date:</span><span class="h5 value" style="width:auto" id="p_date_open">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Close Date:</span><span class="h5 value" style="width:auto" id="p_date_close">—</span></p>
+                                </div></div>
+                                <div class="col-12 col-sm-12 col-md-6 col-lg-3 col-xl-3"><div class="bill-data text-left">
+                                    <p class="mb-none"><span class="h5 text-dark">Position Amount:</span><span class="h5 text-dark text-bold value" id="p_amount">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Position AVG Price:</span><span class="h5 text-dark text-bold value" id="p_avg_price">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Last Price:</span><span class="h5 text-dark text-bold value" id="p_last_price">—</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Position Cost:</span><span class="h5 text-dark text-bold value" id="p_cost">—</span></p>
+                                </div></div>
+                                <div class="col-12 col-sm-12 col-md-6 col-lg-3 col-xl-3"><div class="bill-data text-left">
+                                    <p class="mb-none"><span class="h5 text-dark">Fee Base Currency:</span><span class="h5 text-dark text-bold value" id="p_fee_base_curr">0</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Fee Quote Currency:</span><span class="h5 text-dark text-bold value" id="p_fee_quote_curr">0</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Funding:</span><span class="h5 text-dark text-bold value" id="p_funding">0</span></p>
+                                </div></div>
+                                <div class="col-12 col-sm-12 col-md-6 col-lg-3 col-xl-3"><div class="bill-data text-left">
+                                    <p class="mb-none"><span class="h5 text-dark">Total Realized PnL:</span><span class="h5 text-dark text-bold value" id="p_total_realized_pnl">0</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Unrealized PnL:</span><span class="h5 text-dark text-bold value" id="p_unrealized_pnl">0</span></p>
+                                    <p class="mb-none"><span class="h5 text-dark">Transaction Count:</span><span class="h5 text-dark text-bold value" id="p_trans_count">0</span></p>
+                                    <div id="ws_status" class="disconnected">🔴 Disconnected</div>
+                                </div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-left mr-lg">
+                        <span id="close-pos-btn" style="display:none"><button type="button" class="mb-xs mt-xs mr-xs btn btn-primary"><i class="fa fa-level-down"></i>&nbsp; Close Position</button></span>
+                        <a class="modal-with-form" href="#modalForm-edit-position"><button type="button" class="mb-xs mt-xs mr-xs btn btn-primary"><i class="fa fa-pencil-square-o"></i>&nbsp; Edit</button></a>
+                        <button type="button" class="mb-xs mt-xs mr-xs btn btn-primary" id="del-pos-btn"><i class="fa fa-times"></i>&nbsp; Delete</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <header class="panel-heading">
+                    <div class="panel-actions"><a href="#" class="fa fa-caret-down"></a><a href="#" class="fa fa-times"></a></div>
+                    <h2 class="panel-title">Transactions <span id="pq" style="margin-left: 30px;font-size:small; color: #cf5555"></span></h2>
+                </header>
+                <div class="panel-body">
+                    <a class="modal-with-form" href="#modalForm-add-trans"><button type="button" class="mb-xs mt-xs mr-xs btn btn-primary" id="add-trans-btn"><i class="fa fa-plus-square"></i> &nbsp;Add Transaction</button></a>
+                    <a class="modal-with-form" href="#modalForm-import-trans-csv"><button type="button" class="mb-xs mt-xs mr-xs btn btn-primary"><i class="fa fa-file-text-o"></i> &nbsp;Import CSV</button></a>
+                    <button type="button" class="mb-xs mt-xs mr-xs btn btn-primary" id="edit-trans-btn"><i class="fa fa-pencil-square-o"></i> &nbsp;Edit</button>
+                    <button type="button" class="mb-xs mt-xs mr-xs btn btn-primary" id="del-trans-btn"><i class="fa fa-times"></i> &nbsp;Delete</button>
+                    <div style="margin-top: 20px;"></div>
+                    <table class="table table-bordered table-striped mb-none cell-border order-column" id="dt-trans">
+                        <thead><tr>
+                            <th width="5px"><input type="checkbox" style="margin-bottom: 15px" id="checkallTrans"></th>
+                            <th>Id</th><th>Type</th><th>Price</th><th>Volume</th><th>Fee Base Currency</th><th>Fee Quote Currency</th><th>Funding</th><th>Transaction Date</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="modalForm-add-trans" class="modal-block mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title">Add Transaction</h2></header>
+                    <div class="panel-body" style="min-height: 240px">
+                        <form id="add-trans-form" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left">Transaction Type<span class="required">*</span></label><div><select id="add_trans_type" name="add_trans_type" class="form-control" required><option value=""></option></select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Start Date <span class="required">*</span></label><div class="input-group date" id="dp2"><input type="text" id="add_trans_date" name="add_trans_date" class="form-control" maxlength="19" value="{{.Now}}" required /><span class="input-group-addon px-2"><span class="icon"><i class="fa fa-calendar"></i></span></span></div></div>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px;display:none" id="div_add_trans_funding"><label class="control-label force-align-left">Funding<span class="required">*</span></label><div><input type="text" id="add_trans_funding" name="add_trans_funding" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_add_trans_action"><label class="control-label force-align-left">Action<span class="required">*</span></label><div><select id="add_trans_action" name="add_trans_action" class="form-control" onchange="selectSpotFees();" required disabled><option value=""></option><option value="buy">BUY</option><option value="sell">SELL</option></select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_add_trans_volume"><label class="control-label force-align-left">Volume<span class="required">*</span></label><div><input type="text" id="add_trans_volume" name="add_trans_volume" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_add_trans_price"><label class="control-label force-align-left">Price<span class="required">*</span></label><div><input type="text" id="add_trans_price" name="add_trans_price" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_add_trans_fee_base"><label class="control-label force-align-left">Fee Base Currency<span class="required">*</span></label><div><input type="text" id="add_trans_fee_base" name="add_trans_fee_base" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_add_trans_fee_quote"><label class="control-label force-align-left">Fee<span class="required">*</span></label><div><input type="text" id="add_trans_fee_quote" name="add_trans_fee_quote" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <input type="hidden" id="add_trans_position" name="add_trans_position" value="" />
+                        </form>
+                    </div>
+                    <footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-primary modal-confirm" id="add_trans_button">Save</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer>
+                </section>
+            </div>
+
+            <div id="modalForm-import-trans-csv" class="modal-block mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title">Import Transaction Log from CSV File</h2></header>
+                    <div class="panel-body" style="min-height: 240px">
+                        <form id="import-trans-csv-form" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;"><label class="control-label force-align-left">Exchange<span class="required">*</span></label><div><select id="import_trans_csv_exchange" name="import_trans_csv_exchange" class="form-control" required><option value=""></option>{{range .ExchangeImportCSV}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Contract Name in File<span class="required">*</span></label><div><input type="text" name="import_trans_csv_contract_name" id="import_trans_csv_contract_name" class="form-control" required value=""></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Start Date</label><div class="input-group date" id="dp3"><input type="text" id="import_trans_csv_start_date" name="import_trans_csv_start_date" class="form-control" maxlength="19" value="" /><span class="input-group-addon px-2"><span class="icon"><i class="fa fa-calendar"></i></span></span></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Stop Date</label><div class="input-group date" id="dp4"><input type="text" id="import_trans_csv_stop_date" name="import_trans_csv_stop_date" class="form-control" maxlength="19" value="" /><span class="input-group-addon px-2"><span class="icon"><i class="fa fa-calendar"></i></span></span></div></div>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px"><label class="force-align-left control-label">File Upload</label><div><div class="fileupload fileupload-new" data-provides="fileupload"><div class="input-append"><div class="uneditable-input"><i class="fa fileupload-exists"></i><span class="fileupload-preview"></span></div><span class="btn btn-default btn-file"><span class="fileupload-exists">Change</span><span class="fileupload-new">Select file</span><input type="file" name="import_trans_csv_file" id="import_trans_csv_file" required /></span><a href="#" class="btn btn-default fileupload-exists" data-dismiss="fileupload">Remove</a></div></div></div></div>
+                            <input type="hidden" name="import_trans_csv_position" id="import_trans_csv_position" value="" required>
+                        </form>
+                    </div>
+                    <footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-primary modal-confirm" id="import_trans_csv_button">Load</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer>
+                </section>
+            </div>
+
+            <div id="modalForm-edit-trans" class="modal-block mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title">Edit Transaction</h2></header>
+                    <div class="panel-body" style="min-height: 240px">
+                        <form id="edit-trans-form" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left">Transaction Type<span class="required">*</span></label><div><select id="edit_trans_type" name="edit_trans_type" class="form-control" required><option value=""></option></select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Start Date <span class="required">*</span></label><div class="input-group date" id="dp5"><input type="text" id="edit_trans_date" name="edit_trans_date" class="form-control" maxlength="19" value="{{.Now}}" required /><span class="input-group-addon px-2"><span class="icon"><i class="fa fa-calendar"></i></span></span></div></div>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px;display:none" id="div_edit_trans_funding"><label class="control-label force-align-left">Funding<span class="required">*</span></label><div><input type="text" id="edit_trans_funding" name="edit_trans_funding" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_edit_trans_action"><label class="control-label force-align-left">Action<span class="required">*</span></label><div><select id="edit_trans_action" name="edit_trans_action" class="form-control" onchange="selectSpotFeesEdit();" required disabled><option value=""></option><option value="buy">BUY</option><option value="sell">SELL</option></select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_edit_trans_volume"><label class="control-label force-align-left">Volume<span class="required">*</span></label><div><input type="text" id="edit_trans_volume" name="edit_trans_volume" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_edit_trans_price"><label class="control-label force-align-left">Price<span class="required">*</span></label><div><input type="text" id="edit_trans_price" name="edit_trans_price" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_edit_trans_fee_base"><label class="control-label force-align-left">Fee Base Currency<span class="required">*</span></label><div><input type="text" id="edit_trans_fee_base" name="edit_trans_fee_base" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px;display:none" id="div_edit_trans_fee_quote"><label class="control-label force-align-left">Fee<span class="required">*</span></label><div><input type="text" id="edit_trans_fee_quote" name="edit_trans_fee_quote" class="form-control money" maxlength="64" required disabled /></div></div>
+                            <input type="hidden" name="edit_trans_id" id="edit_trans_id" value="" />
+                            <input type="hidden" name="edit_trans_position" id="edit_trans_position" value="" />
+                        </form>
+                    </div>
+                    <footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-primary modal-confirm" id="edit_trans_button">Save</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer>
+                </section>
+            </div>
+
+            <div id="modalForm-edit-position" class="modal-block mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title">Edit Position</h2></header>
+                    <div class="panel-body">
+                        <form id="edit-position-form" class="form-horizontal mb-lg">
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left">Contract Name<span class="required">*</span></label><div><input type="text" id="edit_position_name_contract" name="edit_position_name_contract" class="form-control" maxlength="64" required /></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left">Exchange <span class="required">*</span></label><div><select id="edit_position_exchange" name="edit_position_exchange" class="form-control" required><option value=""></option>{{range .Exchanges}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div></div>
+                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px"><label class="control-label force-align-left force-align-left-icon">Start Date <span class="required">*</span></label><div class="input-group date" id="dp6"><input type="text" id="edit_position_date_start" name="edit_position_date_start" class="form-control" maxlength="19" value="{{.Now}}" required /><span class="input-group-addon px-2"><span class="icon"><i class="fa fa-calendar"></i></span></span></div></div>
+                        </form>
+                    </div>
+                    <footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-primary modal-confirm" id="edit_position_button">Save</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer>
+                </section>
+            </div>
+
+            <div id="modalDeletePos" class="modal-block modal-block-danger mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title">Attention!</h2></header><div class="panel-body"><div class="modal-wrapper"><div class="modal-text"><h4>Delete Position</h4><p>All transactions will be deleted</p></div></div></div><footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-danger modal-confirm" id="delete_pos_confirm">Delete</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer></section>
+            </div>
+
+            <div id="modalDeleteTrans" class="modal-block modal-block-danger mfp-hide">
+                <section class="panel"><header class="panel-heading"><h2 class="panel-title"></h2></header><div class="panel-body"><div class="modal-wrapper"><div class="modal-text"><h4>Delete selected transactions?</h4></div></div></div><footer class="panel-footer"><div class="row"><div class="col-md-12 text-right"><button class="btn btn-danger modal-confirm" id="delete_trans_confirm">Delete</button><button class="btn btn-default modal-dismiss">Cancel</button></div></div></footer></section>
+            </div>
+
+        </section>
+    </div>
+</section>
+
+<script src="/assets/vendor/jquery-browser-mobile/jquery.browser.mobile.js"></script>
+<script src="/assets/vendor/nanoscroller/nanoscroller.js"></script>
+<script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js"></script>
+<script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.ru.js"></script>
+<script src="/assets/vendor/jquery-datatables/media/js/jquery.dataTables.js"></script>
+<script src="/assets/vendor/jquery-datatables-bs3/assets/js/datatables.js"></script>
+<script src="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.js"></script>
+<script src="/assets/vendor/magnific-popup/magnific-popup.js"></script>
+<script src="/assets/vendor/pnotify/pnotify.custom.js"></script>
+<script src="/assets/javascripts/theme.js"></script>
+<script src="/assets/javascripts/theme.custom.js"></script>
+<script src="/assets/javascripts/theme.init.js"></script>
+<script src="/assets/javascripts/ct.js"></script>
+<script src="/assets/javascripts/position.js"></script>
+<script>
+$(function(){
+    $('#dp2,#dp3,#dp4,#dp5,#dp6').datetimepicker({
+        icons: {time: "fa fa-clock-o", date: "fa fa-calendar", up: "fa fa-arrow-up", down: "fa fa-arrow-down"},
+        format: "yyyy-mm-dd HH:ii:ss",
+        startDate: "01-01-2015",
+        todayBtn: "linked",
+        autoclose: true,
+        todayHighlight: true,
+        weekStart: 1,
+        language: "ru",
+        pickTime: false
+    });
+});
+</script>
+</body>
+</html>
+{{end}}

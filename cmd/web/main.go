@@ -146,6 +146,7 @@ func main() {
 	groupController := controllers.NewGroupController()
 	exchangeController := controllers.NewExchangeController()
 	exchangeAccountController := controllers.NewExchangeAccountController()
+	positionController := controllers.NewPositionController()
 
 	// ============================================
 	// ШАГ 8: Регистрация Auth Middleware
@@ -158,9 +159,9 @@ func main() {
 	// Регистрируем маршруты (URL пути):
 	//   GET /          -> главная страница (userController.Home)
 	//   GET /login     -> страница входа (userController.ShowLoginPage)
-	r.GET("/healthz", func(c *gin.Context) {
+	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
+			"status": true,
 		})
 	})
 	r.GET("/", userController.Home)
@@ -246,6 +247,25 @@ func main() {
 	exAccounts.POST("/ajax_getid_accounts", exchangeAccountController.AjaxGetAccountByID)
 	exAccounts.POST("/ajax_create_account", exchangeAccountController.AjaxCreateAccount)
 	exAccounts.POST("/ajax_edit_account", exchangeAccountController.AjaxEditAccount)
+
+	positions := r.Group("/positions_calc")
+	positions.GET("/", positionController.List)
+	positions.POST("/ajax_get_positions.php", positionController.AjaxGetPositions)
+	positions.POST("/ajax_create_position.php", positionController.AjaxCreatePosition)
+	positions.POST("/ajax_close_position.php", positionController.AjaxClosePosition)
+	positions.POST("/ajax_delete_position.php", positionController.AjaxDeletePosition)
+
+	positionDetails := r.Group("/positions_calc/position")
+	positionDetails.GET("/", positionController.PositionPage)
+	positionDetails.POST("/ajax_get_position.php", positionController.AjaxGetPosition)
+	positionDetails.POST("/ajax_edit_position.php", positionController.AjaxEditPosition)
+	positionDetails.POST("/ajax_get_trans.php", positionController.AjaxGetTransactions)
+	positionDetails.POST("/ajax_create_trans.php", positionController.AjaxCreateTransaction)
+	positionDetails.POST("/ajax_edit_trans.php", positionController.AjaxEditTransaction)
+	positionDetails.POST("/ajax_upload_trans_csv.php", positionController.AjaxUploadTransactionCSV)
+	positionDetails.POST("/ajax_delete_trans.php", positionController.AjaxDeleteTransaction)
+	positionDetails.POST("/ajax_kucoin_price.php", positionController.AjaxKucoinPrice)
+	positionDetails.POST("/ajax_kucoin_token.php", positionController.AjaxKucoinToken)
 
 	// ============================================
 	// ШАГ 10: Настройка статических файлов и шаблонов
