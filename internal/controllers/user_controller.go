@@ -462,9 +462,10 @@ func (u *UserController) List(c *gin.Context) {
 	// ШАГ 3: Рендеринг страницы
 	// ============================================
 	c.HTML(http.StatusOK, "users/index.html", gin.H{
-		"Title":  "Users Management",
-		"User":   user,
-		"Groups": groups,
+		"Title":     "Users Management",
+		"User":      user,
+		"Groups":    groups,
+		"Timezones": utils.GetTimezoneGroups(),
 	})
 }
 
@@ -603,6 +604,11 @@ func (u *UserController) AjaxGetUserById(c *gin.Context) {
 		"last_name": targetUser.LastName,
 		"name":      targetUser.Name,
 		"email":     targetUser.Email,
+		"timezone":  targetUser.Timezone,
+	}
+
+	if targetUser.Timezone == "" {
+		responseData["timezone"] = "UTC"
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -680,6 +686,10 @@ func (u *UserController) AjaxCreateUser(c *gin.Context) {
 	status := c.PostForm("create_user_status")
 	name := strings.TrimSpace(c.PostForm("create_user_name"))
 	lastName := strings.TrimSpace(c.PostForm("create_user_last_name"))
+	timezone := strings.TrimSpace(c.PostForm("create_user_timezone"))
+	if timezone == "" {
+		timezone = "UTC"
+	}
 
 	// ============================================
 	// ШАГ 3: Валидация обязательных полей
@@ -740,6 +750,17 @@ func (u *UserController) AjaxCreateUser(c *gin.Context) {
 	if err := utils.ValidateEmail(email); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"error":   err.Error(),
+			"success": false,
+		})
+		return
+	}
+
+	// ============================================
+	// ШАГ 6.3: Валидация часового пояса
+	// ============================================
+	if _, err := time.LoadLocation(timezone); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"error":   "timezone failed",
 			"success": false,
 		})
 		return
@@ -842,7 +863,7 @@ func (u *UserController) AjaxCreateUser(c *gin.Context) {
 		Active:   utils.StatusToBool(status),
 		Name:     name,
 		LastName: lastName,
-		Timezone: "UTC", // По умолчанию UTC
+		Timezone: timezone,
 	}
 
 	createdUserID, err := userRepo.Create(newUser, groupIDs, user.ID)
@@ -949,6 +970,10 @@ func (u *UserController) AjaxEditUser(c *gin.Context) {
 	status := c.PostForm("edit_user_status")
 	name := strings.TrimSpace(c.PostForm("edit_user_name"))
 	lastName := strings.TrimSpace(c.PostForm("edit_user_last_name"))
+	timezone := strings.TrimSpace(c.PostForm("edit_user_timezone"))
+	if timezone == "" {
+		timezone = "UTC"
+	}
 
 	// ============================================
 	// ШАГ 3: Валидация обязательных полей
@@ -1055,6 +1080,17 @@ func (u *UserController) AjaxEditUser(c *gin.Context) {
 	}
 
 	// ============================================
+	// ШАГ 7.2: Валидация часового пояса
+	// ============================================
+	if _, err := time.LoadLocation(timezone); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"error":   "timezone failed",
+			"success": false,
+		})
+		return
+	}
+
+	// ============================================
 	// ШАГ 7.1: Проверка уникальности email (исключая текущего пользователя)
 	// ============================================
 	existsEmail, err := userRepo.ExistsByEmailExcludingID(email, userID)
@@ -1141,6 +1177,7 @@ func (u *UserController) AjaxEditUser(c *gin.Context) {
 	existingUser.Active = utils.StatusToBool(status)
 	existingUser.Name = name
 	existingUser.LastName = lastName
+	existingUser.Timezone = timezone
 
 	err = userRepo.Update(existingUser, groupIDs, updatePassword, user.ID)
 	if err != nil {

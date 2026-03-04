@@ -249,21 +249,31 @@
                                     </div>
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Password</label>
-                                        <div class="">
-                                            <input type="password" id="edit_user_password" name="edit_user_password" class="form-control" maxlength="32" placeholder="" />
+                                        <div class="input-group">
+                                            <input type="password" id="edit_user_password" name="edit_user_password" class="form-control" maxlength="32" placeholder="" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" />
+                                            <span class="input-group-btn">
+                                                <button class="btn btn-default toggle-password-visibility" type="button" data-target="#edit_user_password" aria-label="Show or hide password">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Password Confirm</label>
-                                        <div class="">
-                                            <input type="password" id="edit_user_password_confirm" name="edit_user_password_confirm" class="form-control" maxlength="32" placeholder="" />
+                                        <div class="input-group">
+                                            <input type="password" id="edit_user_password_confirm" name="edit_user_password_confirm" class="form-control" maxlength="32" placeholder="" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" />
+                                            <span class="input-group-btn">
+                                                <button class="btn btn-default toggle-password-visibility" type="button" data-target="#edit_user_password_confirm" aria-label="Show or hide password">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Groups <span class="required">*</span></label>
                                         <div class="">
-                                            <select id="edit_user_groups" name="edit_user_groups" class="form-control" placeholder="" required multiple size="2">
+                                            <select id="edit_user_groups" name="edit_user_groups" class="form-control" placeholder="" required multiple size="4">
                                                 {{range .Groups}}
                                                 <option value="{{.ID}}">{{.Name}}</option>
                                                 {{end}}
@@ -276,6 +286,14 @@
                                             <select id="edit_user_status" name="edit_user_status" class="form-control" placeholder="" required>
                                                 <option value="enable">Active</option>
                                                 <option value="disable">Blocked</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                        <label class="control-label force-align-left">TimeZone <span class="required">*</span></label>
+                                        <div class="">
+                                            <select id="edit_user_timezone" name="edit_user_timezone" class="form-control" required>
+                                                {{template "layouts/timezone_options" .Timezones}}
                                             </select>
                                         </div>
                                     </div>
@@ -301,7 +319,7 @@
                                 <h2 class="panel-title">Create User</h2>
                             </header>
                             <div class="panel-body">
-                                <form id="create-user-form" class="form-horizontal mb-lg">
+                                <form id="create-user-form" class="form-horizontal mb-lg" autocomplete="off">
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Name <span class="required">*</span></label>
                                         <div class="">
@@ -328,21 +346,31 @@
                                     </div>
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Password <span class="required">*</span></label>
-                                        <div class="">
-                                            <input type="password" id="create_user_password" name="create_user_password" class="form-control" maxlength="32" placeholder="" required />
+                                        <div class="input-group">
+                                            <input type="password" id="create_user_password" name="create_user_password" class="form-control" maxlength="32" placeholder="" required autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" />
+                                            <span class="input-group-btn">
+                                                <button class="btn btn-default toggle-password-visibility" type="button" data-target="#create_user_password" aria-label="Show or hide password">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Password Confirm <span class="required">*</span></label>
-                                        <div class="">
-                                            <input type="password" id="create_user_password_confirm" name="create_user_password_confirm" class="form-control" maxlength="32" placeholder="" required />
+                                        <div class="input-group">
+                                            <input type="password" id="create_user_password_confirm" name="create_user_password_confirm" class="form-control" maxlength="32" placeholder="" required autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" />
+                                            <span class="input-group-btn">
+                                                <button class="btn btn-default toggle-password-visibility" type="button" data-target="#create_user_password_confirm" aria-label="Show or hide password">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                         <label class="control-label force-align-left">Groups <span class="required">*</span></label>
                                         <div class="">
-                                            <select id="create_user_groups" name="create_user_groups" class="form-control" placeholder="" required multiple size="2">
+                                            <select id="create_user_groups" name="create_user_groups" class="form-control" placeholder="" required multiple size="4">
                                                 {{range .Groups}}
                                                 <option value="{{.ID}}">{{.Name}}</option>
                                                 {{end}}
@@ -355,6 +383,14 @@
                                             <select id="create_user_status" name="create_user_status" class="form-control" placeholder="" required>
                                                 <option value="enable">Active</option>
                                                 <option value="disable">Blocked</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                                        <label class="control-label force-align-left">TimeZone <span class="required">*</span></label>
+                                        <div class="">
+                                            <select id="create_user_timezone" name="create_user_timezone" class="form-control" required>
+                                                {{template "layouts/timezone_options" .Timezones}}
                                             </select>
                                         </div>
                                     </div>

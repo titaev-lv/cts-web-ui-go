@@ -1,0 +1,9 @@
+{{define "layouts/timezone_options"}}
+{{range .}}
+<optgroup label="{{.Name}}">
+    {{range .Options}}
+    <option value="{{.Value}}" {{if eq .Value "UTC"}}selected{{end}}>{{.Label}}</option>
+    {{end}}
+</optgroup>
+{{end}}
+{{end}}

@@ -4,6 +4,7 @@ import (
 	"ctweb/internal/config"
 	"errors"
 	"regexp"
+	"strings"
 	"unicode"
 
 	"golang.org/x/crypto/bcrypt"
@@ -19,14 +20,16 @@ import (
 //   - error: ошибка, если не удалось создать хеш
 //
 // Использование:
-//   hash, err := PasswordHash("myPassword123")
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	hash, err := PasswordHash("myPassword123")
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 //
 // Примечание:
-//   Использует стоимость (cost) из конфигурации (по умолчанию 10).
-//   Чем выше cost, тем безопаснее, но медленнее хеширование.
+//
+//	Использует стоимость (cost) из конфигурации (по умолчанию 10).
+//	Чем выше cost, тем безопаснее, но медленнее хеширование.
 func PasswordHash(password string) (string, error) {
 	// Получаем конфигурацию для определения стоимости хеширования
 	cfg := config.Get()
@@ -59,17 +62,19 @@ func PasswordHash(password string) (string, error) {
 //   - error: ошибка, если произошла проблема при проверке
 //
 // Использование:
-//   isValid, err := PasswordVerify("myPassword123", storedHash)
-//   if err != nil {
-//       // обработка ошибки
-//   }
-//   if isValid {
-//       // пароль верный
-//   }
+//
+//	isValid, err := PasswordVerify("myPassword123", storedHash)
+//	if err != nil {
+//	    // обработка ошибки
+//	}
+//	if isValid {
+//	    // пароль верный
+//	}
 //
 // Примечание:
-//   Использует bcrypt.CompareHashAndPassword, который безопасно сравнивает
-//   пароль с хешем, защищая от timing attacks.
+//
+//	Использует bcrypt.CompareHashAndPassword, который безопасно сравнивает
+//	пароль с хешем, защищая от timing attacks.
 func PasswordVerify(password, hash string) (bool, error) {
 	// Сравниваем пароль с хешем
 	// bcrypt.CompareHashAndPassword возвращает nil, если пароль совпадает
@@ -91,7 +96,8 @@ func PasswordVerify(password, hash string) (bool, error) {
 //   - Должен содержать строчные буквы (a-z)
 //   - Должен содержать заглавные буквы (A-Z)
 //   - Должен содержать цифры (0-9)
-//   - Может содержать только буквы и цифры (без спецсимволов)
+//   - Должен содержать спецсимвол из набора: !@#$%^&*()_+-=[]{};:,.?/\|
+//   - Может содержать только латиницу, цифры и спецсимволы из этого набора
 //
 // Параметры:
 //   - password: пароль для проверки
@@ -100,18 +106,21 @@ func PasswordVerify(password, hash string) (bool, error) {
 //   - error: nil, если пароль валиден, или описание ошибки
 //
 // Использование:
-//   err := PasswordValidate("MyPassword123")
-//   if err != nil {
-//       // пароль не соответствует требованиям
-//       fmt.Println(err.Error())
-//   }
+//
+//	err := PasswordValidate("MyPassword123")
+//	if err != nil {
+//	    // пароль не соответствует требованиям
+//	    fmt.Println(err.Error())
+//	}
 //
 // Примеры:
-//   PasswordValidate("Short1") -> error: "password must be at least 10 characters"
-//   PasswordValidate("nouppercase123") -> error: "password must contain uppercase letters"
-//   PasswordValidate("NOLOWERCASE123") -> error: "password must contain lowercase letters"
-//   PasswordValidate("NoNumbers") -> error: "password must contain numbers"
-//   PasswordValidate("ValidPass123") -> nil (валидный пароль)
+//
+//	PasswordValidate("Short1") -> error: "password must be at least 10 characters"
+//	PasswordValidate("nouppercase123") -> error: "password must contain uppercase letters"
+//	PasswordValidate("NOLOWERCASE123") -> error: "password must contain lowercase letters"
+//	PasswordValidate("NoNumbers") -> error: "password must contain numbers"
+//	PasswordValidate("ValidPass123") -> error: "password must contain special symbols"
+//	PasswordValidate("ValidPass123!") -> nil (валидный пароль)
 func PasswordValidate(password string) error {
 	// Проверка минимальной длины
 	if len(password) < 10 {
@@ -122,7 +131,9 @@ func PasswordValidate(password string) error {
 	hasLower := false
 	hasUpper := false
 	hasDigit := false
+	hasSpecial := false
 	hasInvalid := false
+	specialChars := "!@#$%^&*()_+-=[]{};:,.?/\\|"
 
 	// Проходим по каждому символу пароля
 	for _, char := range password {
@@ -133,9 +144,10 @@ func PasswordValidate(password string) error {
 			hasUpper = true
 		case unicode.IsDigit(char):
 			hasDigit = true
+		case strings.ContainsRune(specialChars, char):
+			hasSpecial = true
 		default:
-			// Если символ не буква и не цифра - это недопустимый символ
-			// Согласно PHP регулярному выражению: [a-zA-Z\d]
+			// Если символ не латинская буква, не цифра и не допустимый спецсимвол - это недопустимый символ
 			hasInvalid = true
 		}
 	}
@@ -150,8 +162,11 @@ func PasswordValidate(password string) error {
 	if !hasDigit {
 		return errors.New("password must contain numbers")
 	}
+	if !hasSpecial {
+		return errors.New("password must contain special symbols")
+	}
 	if hasInvalid {
-		return errors.New("password must contain only letters and numbers")
+		return errors.New("password contains unsupported characters")
 	}
 
 	// Пароль соответствует всем требованиям
@@ -166,16 +181,18 @@ func PasswordValidate(password string) error {
 //
 // Возвращает:
 //   - error: nil, если пароль валиден и совпадает с подтверждением,
-//            или описание ошибки
+//     или описание ошибки
 //
 // Использование:
-//   err := PasswordValidateWithConfirm("MyPassword123", "MyPassword123")
-//   if err != nil {
-//       // пароль не валиден или не совпадает
-//   }
+//
+//	err := PasswordValidateWithConfirm("MyPassword123", "MyPassword123")
+//	if err != nil {
+//	    // пароль не валиден или не совпадает
+//	}
 //
 // Примечание:
-//   Сначала проверяет, что пароли совпадают, затем валидирует пароль.
+//
+//	Сначала проверяет, что пароли совпадают, затем валидирует пароль.
 func PasswordValidateWithConfirm(password, passwordConfirm string) error {
 	// Проверяем, что пароли совпадают
 	if password != passwordConfirm {
@@ -186,8 +203,7 @@ func PasswordValidateWithConfirm(password, passwordConfirm string) error {
 	return PasswordValidate(password)
 }
 
-// PasswordValidateRegex проверяет пароль с помощью регулярного выражения
-// (как в PHP: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{10,}$/).
+// PasswordValidateRegex проверяет пароль с помощью регулярного выражения.
 //
 // Параметры:
 //   - password: пароль для проверки
@@ -197,26 +213,30 @@ func PasswordValidateWithConfirm(password, passwordConfirm string) error {
 //   - error: ошибка, если не удалось выполнить проверку
 //
 // Использование:
-//   isValid, err := PasswordValidateRegex("MyPassword123")
-//   if err != nil {
-//       // обработка ошибки
-//   }
+//
+//	isValid, err := PasswordValidateRegex("MyPassword123")
+//	if err != nil {
+//	    // обработка ошибки
+//	}
 //
 // Примечание:
-//   Это альтернативный способ проверки, используемый для совместимости с PHP.
-//   Рекомендуется использовать PasswordValidate, так как он даёт более
-//   понятные сообщения об ошибках.
+//
+//	Это альтернативный способ проверки.
+//	Рекомендуется использовать PasswordValidate, так как он даёт более
+//	понятные сообщения об ошибках.
 func PasswordValidateRegex(password string) (bool, error) {
-	// Регулярное выражение из PHP:
-	// /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{10,}$/
+	// Регулярное выражение для проверки требований:
+	// минимум 10 символов, строчные/заглавные/цифры/спецсимволы,
+	// и только разрешённые символы.
 	// Разбор:
 	//   ^ - начало строки
 	//   (?=.*[a-z]) - положительный lookahead: должна быть хотя бы одна строчная буква
 	//   (?=.*[A-Z]) - положительный lookahead: должна быть хотя бы одна заглавная буква
 	//   (?=.*\d) - положительный lookahead: должна быть хотя бы одна цифра
-	//   [a-zA-Z\d]{10,} - от 10 и более символов, только буквы и цифры
+	//   (?=.*[!@#$%^&*()_+\-=\[\]{};:,.?/\\|]) - хотя бы один допустимый спецсимвол
+	//   [A-Za-z\d!@#$%^&*()_+\-=\[\]{};:,.?/\\|]{10,} - только разрешённые символы
 	//   $ - конец строки
-	pattern := `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{10,}$`
+	pattern := `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};:,.?/\\|])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};:,.?/\\|]{10,}$`
 
 	// Компилируем регулярное выражение
 	regex, err := regexp.Compile(pattern)
@@ -227,4 +247,3 @@ func PasswordValidateRegex(password string) (bool, error) {
 	// Проверяем соответствие пароля регулярному выражению
 	return regex.MatchString(password), nil
 }
-

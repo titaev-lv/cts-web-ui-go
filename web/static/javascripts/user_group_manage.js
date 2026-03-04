@@ -144,13 +144,240 @@ $(document).ready(function() {
                 cells[i].querySelector("input[type='checkbox']").checked = state;
             }
         });
+
+        var createPasswordSpecialRegex = /[!@#$%^&*()_+\-=\[\]{};:,.?/\\|]/;
+        var createPasswordAllowedRegex = /^[A-Za-z\d!@#$%^&*()_+\-=\[\]{};:,.?/\\|]+$/;
+
+        function isCreatePasswordStrong(password) {
+            if(password.length < 10) {
+                return false;
+            }
+
+            return /[a-z]/.test(password) &&
+                /[A-Z]/.test(password) &&
+                /\d/.test(password) &&
+                createPasswordSpecialRegex.test(password) &&
+                createPasswordAllowedRegex.test(password);
+        }
+
+        function resetCreatePasswordVisualState() {
+            var passwordInput = $('#create_user_password');
+            var confirmInput = $('#create_user_password_confirm');
+
+            passwordInput.removeClass('err').css('background-color', '');
+            confirmInput.removeClass('err').css('background-color', '');
+
+            passwordInput.closest('.form-group').removeClass('has-success');
+            confirmInput.closest('.form-group').removeClass('has-success');
+
+            $('.create-pass-valid-icon, .create-pass-confirm-valid-icon').hide();
+        }
+
+        function ensureCreatePasswordIndicators() {
+            var passwordLabel = $('#create_user_password').closest('.form-group').find('label').first();
+            var confirmLabel = $('#create_user_password_confirm').closest('.form-group').find('label').first();
+
+            if(passwordLabel.find('.create-pass-valid-icon').length === 0) {
+                passwordLabel.append(' <i class="fa fa-check text-success create-pass-valid-icon" style="display:none"></i>');
+            }
+
+            if(confirmLabel.find('.create-pass-confirm-valid-icon').length === 0) {
+                confirmLabel.append(' <i class="fa fa-check text-success create-pass-confirm-valid-icon" style="display:none"></i>');
+            }
+        }
+
+        function updateCreatePasswordVisualState(markErrors) {
+            ensureCreatePasswordIndicators();
+
+            var password = $('#create_user_password').val() || '';
+            var passwordConfirm = $('#create_user_password_confirm').val() || '';
+            var passwordValid = isCreatePasswordStrong(password);
+            var confirmValid = password.length > 0 && passwordConfirm.length > 0 && password === passwordConfirm;
+
+            var passwordInput = $('#create_user_password');
+            var confirmInput = $('#create_user_password_confirm');
+            var passwordGroup = passwordInput.closest('.form-group');
+            var confirmGroup = confirmInput.closest('.form-group');
+            var passwordIcon = passwordGroup.find('.create-pass-valid-icon');
+            var confirmIcon = confirmGroup.find('.create-pass-confirm-valid-icon');
+
+            passwordGroup.removeClass('has-success');
+            confirmGroup.removeClass('has-success');
+            passwordIcon.hide();
+            confirmIcon.hide();
+
+            if(!markErrors) {
+                passwordInput.removeClass('err');
+                confirmInput.removeClass('err');
+            }
+
+            passwordInput.css('background-color', '');
+            confirmInput.css('background-color', '');
+
+            if(password.length > 0 && passwordValid) {
+                passwordGroup.addClass('has-success');
+                passwordInput.removeClass('err');
+                passwordInput.css('background-color', '#e8f5e9');
+                passwordIcon.show();
+            } else if(password.length > 0 && !passwordValid) {
+                passwordInput.css('background-color', '#fdecec');
+                if(markErrors) {
+                    passwordInput.addClass('err');
+                }
+            }
+
+            if(passwordConfirm.length > 0 && confirmValid) {
+                confirmGroup.addClass('has-success');
+                confirmInput.removeClass('err');
+                confirmInput.css('background-color', '#e8f5e9');
+                confirmIcon.show();
+            } else if(passwordConfirm.length > 0 && !confirmValid) {
+                confirmInput.css('background-color', '#fdecec');
+                if(markErrors) {
+                    confirmInput.addClass('err');
+                }
+            }
+
+            return {
+                passwordValid: passwordValid,
+                confirmValid: confirmValid,
+            };
+        }
+
+        function resetEditPasswordVisualState() {
+            var passwordInput = $('#edit_user_password');
+            var confirmInput = $('#edit_user_password_confirm');
+
+            passwordInput.removeClass('err').css('background-color', '');
+            confirmInput.removeClass('err').css('background-color', '');
+
+            passwordInput.closest('.form-group').removeClass('has-success');
+            confirmInput.closest('.form-group').removeClass('has-success');
+
+            $('.edit-pass-valid-icon, .edit-pass-confirm-valid-icon').hide();
+        }
+
+        function ensureEditPasswordIndicators() {
+            var passwordLabel = $('#edit_user_password').closest('.form-group').find('label').first();
+            var confirmLabel = $('#edit_user_password_confirm').closest('.form-group').find('label').first();
+
+            if(passwordLabel.find('.edit-pass-valid-icon').length === 0) {
+                passwordLabel.append(' <i class="fa fa-check text-success edit-pass-valid-icon" style="display:none"></i>');
+            }
+
+            if(confirmLabel.find('.edit-pass-confirm-valid-icon').length === 0) {
+                confirmLabel.append(' <i class="fa fa-check text-success edit-pass-confirm-valid-icon" style="display:none"></i>');
+            }
+        }
+
+        function updateEditPasswordVisualState(markErrors) {
+            ensureEditPasswordIndicators();
+
+            var password = $('#edit_user_password').val() || '';
+            var passwordConfirm = $('#edit_user_password_confirm').val() || '';
+            var hasAnyPasswordInput = password.length > 0 || passwordConfirm.length > 0;
+            var passwordValid = !hasAnyPasswordInput || isCreatePasswordStrong(password);
+            var confirmValid = !hasAnyPasswordInput || (password.length > 0 && passwordConfirm.length > 0 && password === passwordConfirm);
+
+            var passwordInput = $('#edit_user_password');
+            var confirmInput = $('#edit_user_password_confirm');
+            var passwordGroup = passwordInput.closest('.form-group');
+            var confirmGroup = confirmInput.closest('.form-group');
+            var passwordIcon = passwordGroup.find('.edit-pass-valid-icon');
+            var confirmIcon = confirmGroup.find('.edit-pass-confirm-valid-icon');
+
+            passwordGroup.removeClass('has-success');
+            confirmGroup.removeClass('has-success');
+            passwordIcon.hide();
+            confirmIcon.hide();
+
+            if(!markErrors) {
+                passwordInput.removeClass('err');
+                confirmInput.removeClass('err');
+            }
+
+            passwordInput.css('background-color', '');
+            confirmInput.css('background-color', '');
+
+            if(password.length > 0 && isCreatePasswordStrong(password)) {
+                passwordGroup.addClass('has-success');
+                passwordInput.removeClass('err');
+                passwordInput.css('background-color', '#e8f5e9');
+                passwordIcon.show();
+            } else if(password.length > 0) {
+                passwordInput.css('background-color', '#fdecec');
+                if(markErrors) {
+                    passwordInput.addClass('err');
+                }
+            }
+
+            if(passwordConfirm.length > 0 && password.length > 0 && password === passwordConfirm) {
+                confirmGroup.addClass('has-success');
+                confirmInput.removeClass('err');
+                confirmInput.css('background-color', '#e8f5e9');
+                confirmIcon.show();
+            } else if(passwordConfirm.length > 0) {
+                confirmInput.css('background-color', '#fdecec');
+                if(markErrors) {
+                    confirmInput.addClass('err');
+                }
+            }
+
+            return {
+                hasAnyPasswordInput: hasAnyPasswordInput,
+                passwordValid: passwordValid,
+                confirmValid: confirmValid,
+            };
+        }
+
+        $('#create_user_password, #create_user_password_confirm').on('input', function() {
+            updateCreatePasswordVisualState(false);
+        });
+
+        $('#edit_user_password, #edit_user_password_confirm').on('input', function() {
+            updateEditPasswordVisualState(false);
+        });
+
+        $(document).on('click', '.toggle-password-visibility', function(e) {
+            e.preventDefault();
+
+            var targetSelector = $(this).attr('data-target');
+            var targetInput = $(targetSelector);
+            if(targetInput.length === 0) {
+                return;
+            }
+
+            var icon = $(this).find('i');
+            if(targetInput.attr('type') === 'password') {
+                targetInput.attr('type', 'text');
+                icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                targetInput.attr('type', 'password');
+                icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        });
+
+        ensureCreatePasswordIndicators();
+        ensureEditPasswordIndicators();
+
+        $('#create-user-form').on('reset', function() {
+            setTimeout(function() {
+                resetCreatePasswordVisualState();
+            }, 0);
+        });
+
+        $('a[href="#modalForm-create-user"]').on('click', function() {
+            setTimeout(function() {
+                resetCreatePasswordVisualState();
+            }, 0);
+        });
         
         // Кнопка создания пользователя
         $('#create_user_button').on('click', function(e) {
             e.preventDefault();
             var isNotValid = false;
             var passError = false; 
-            var lenghtPassError = false;
+            var passComplexityError = false;
             
             // Валидация обязательных полей
             $("#create-user-form").find('input, textarea, select').each(function(e, elements) {
@@ -167,17 +394,20 @@ $(document).ready(function() {
             // Проверка совпадения паролей
             let p1 = $("#create_user_password").val();
             let p2 = $("#create_user_password_confirm").val();
-            if(p1 !== p2) {
+
+            var passwordValidation = updateCreatePasswordVisualState(true);
+
+            if(!passwordValidation.confirmValid && p2.length > 0) {
                 passError = true;
                 $('#create_user_password_confirm').addClass("err");
             }
             
-            // Проверка длины пароля
-            if(p1.length < 10) {
-                lenghtPassError = true;
+            if(!passwordValidation.passwordValid && p1.length > 0) {
+                passComplexityError = true;
+                $('#create_user_password').addClass("err");
             }
 
-            if(isNotValid === false && passError === false && lenghtPassError === false) {
+            if(isNotValid === false && passError === false && passComplexityError === false) {
                 var formData = new FormData();
                 var data = $('#create-user-form').serializeArray();
                 var grp = Array();
@@ -222,6 +452,7 @@ $(document).ready(function() {
                             $.magnificPopup.close();
                             tableUsers.draw();
                             $("form#create-user-form").trigger('reset');
+                            resetCreatePasswordVisualState();
                         }
                     },
                     error: function (data, textStatus) {
@@ -241,8 +472,8 @@ $(document).ready(function() {
                 var msg = '';
                 if(passError === true) {
                     msg = 'Confirm Password is failed';
-                } else if(lenghtPassError === true) {
-                    msg = 'Password must be longer than or equal 10 characters';
+                } else if(passComplexityError === true) {
+                    msg = 'Password must be at least 10 chars and include lowercase, uppercase, number and special symbol';
                 } else {
                     msg = 'Required fields is empty';
                 }
@@ -288,6 +519,7 @@ $(document).ready(function() {
                                 $(elements).removeClass("err");
                             }
                         });
+                        resetEditPasswordVisualState();
 
                         // Сброс всех checkbox
                         var cells = tableUsers.column(0).nodes();
@@ -391,7 +623,7 @@ $(document).ready(function() {
             e.preventDefault();
             var isNotValid = false;
             var passError = false; 
-            var lenghtPassError = false;
+            var passComplexityError = false;
             
             // Валидация обязательных полей
             $("#edit-user-form").find('input, textarea, select').each(function(e, elements) {
@@ -410,18 +642,19 @@ $(document).ready(function() {
             // Проверка совпадения паролей (если указаны)
             let p1 = $("#edit_user_password").val();
             let p2 = $("#edit_user_password_confirm").val();
-            if(p1.length > 0 || p2.length > 0) {
-                if(p1 !== p2) {
+            var editPasswordValidation = updateEditPasswordVisualState(true);
+            if(editPasswordValidation.hasAnyPasswordInput) {
+                if(!editPasswordValidation.confirmValid) {
                     passError = true;
                     $('#edit_user_password_confirm').addClass("err");
                 }
-                // Проверка длины пароля
-                if(p1.length > 0 && p1.length < 10) {
-                    lenghtPassError = true;
+                if(!editPasswordValidation.passwordValid) {
+                    passComplexityError = true;
+                    $('#edit_user_password').addClass("err");
                 }
             }
 
-            if(isNotValid === false && passError === false && lenghtPassError === false) {
+            if(isNotValid === false && passError === false && passComplexityError === false) {
                 var formData = new FormData();
                 var data = $('#edit-user-form').serializeArray();
                 var grp = Array();
@@ -466,6 +699,7 @@ $(document).ready(function() {
                             $.magnificPopup.close();
                             tableUsers.draw();
                             $("form#edit-user-form").trigger('reset');
+                            resetEditPasswordVisualState();
                         }
                     },
                     error: function (data, textStatus) {
@@ -485,8 +719,8 @@ $(document).ready(function() {
                 var msg = '';
                 if(passError === true) {
                     msg = 'Confirm Password is failed';
-                } else if(lenghtPassError === true) {
-                    msg = 'Password must be longer than or equal 10 characters';
+                } else if(passComplexityError === true) {
+                    msg = 'Password must be at least 10 chars and include lowercase, uppercase, number and special symbol';
                 } else {
                     msg = 'Required fields is empty';
                 }
@@ -923,6 +1157,32 @@ function keysearchUser(event) {
         table.draw();
     }
 }
+
+        function initTimezoneSelect2() {
+            function initOne(selector, modalSelector) {
+                var field = $(selector);
+                if(field.length === 0) {
+                    return;
+                }
+
+                if(field.hasClass('select2-hidden-accessible') || field.data('select2')) {
+                    return;
+                }
+
+                field.select2({
+                    width: '100%',
+                    allowClear: false,
+                    dropdownAutoWidth: true,
+                    dropdownParent: $(modalSelector)
+                });
+            }
+
+            initOne('#create_user_timezone', '#modalForm-create-user');
+            initOne('#edit_user_timezone', '#modalForm-edit-user');
+        }
+                initTimezoneSelect2();
+    initTimezoneSelect2();
+                        initTimezoneSelect2();
 
 /**
  * Функция поиска по колонкам для групп
