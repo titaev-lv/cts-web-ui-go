@@ -203,12 +203,11 @@
                                 <input type="checkbox" style="margin-bottom: 15px" id="checkallExAccounts">
                             </th>
                             <th style="width: 100px;">ID</th>
-                            <th>Exchange ID</th>
+                            <th>Exchange</th>
                             <th>Account Name</th>
+                            <th>API KEY Name (Note)</th>
                             <th>Priority</th>
                             <th>Status</th>
-                            <th>API Key</th>
-                            <th>Note</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -287,9 +286,14 @@
                     <div class="panel-body">
                         <form id="form-create-exaccount" class="form-horizontal mb-lg">
                             <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
-                                <label class="control-label force-align-left">Exchange ID <span class="required">*</span></label>
+                                <label class="control-label force-align-left">Exchange <span class="required">*</span></label>
                                 <div class="">
-                                    <input type="number" id="create_exchange_account_exid" name="create_exchange_account_exid" class="form-control" placeholder="" required />
+                                    <select id="create_exchange_account_exid" name="create_exchange_account_exid" class="form-control" required>
+                                        <option value=""></option>
+                                        {{range .Exchanges}}
+                                        <option value="{{.ID}}" data-active="{{if .Active}}1{{else}}0{{end}}">{{.Name}}{{if not .Active}} (Blocked){{end}}</option>
+                                        {{end}}
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
@@ -313,28 +317,28 @@
                                     <input type="number" id="create_exchange_account_priority" name="create_exchange_account_priority" class="form-control" value="0" min="0" />
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
+                                <label class="control-label force-align-left">API KEY Name (Note)</label>
+                                <div class="">
+                                    <input type="text" id="create_exchange_account_note" name="create_exchange_account_note" class="form-control" maxlength="1024" placeholder="" />
+                                </div>
+                            </div>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
                                 <label class="control-label force-align-left">API Key <span class="required">*</span></label>
                                 <div class="">
-                                    <input type="text" id="create_exchange_account_api_key" name="create_exchange_account_api_key" class="form-control" maxlength="512" placeholder="" required />
+                                    <textarea rows="3" id="create_exchange_account_api_key" name="create_exchange_account_api_key" class="form-control" maxlength="512" placeholder="" required></textarea>
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
                                 <label class="control-label force-align-left">Secret Key</label>
                                 <div class="">
-                                    <input type="text" id="create_exchange_account_secret_key" name="create_exchange_account_secret_key" class="form-control" maxlength="512" placeholder="" />
+                                    <textarea rows="3" id="create_exchange_account_secret_key" name="create_exchange_account_secret_key" class="form-control" maxlength="512" placeholder=""></textarea>
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
                                 <label class="control-label force-align-left">Add Key</label>
                                 <div class="">
-                                    <input type="text" id="create_exchange_account_add_key" name="create_exchange_account_add_key" class="form-control" maxlength="512" placeholder="" />
-                                </div>
-                            </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
-                                <label class="control-label force-align-left">Note</label>
-                                <div class="">
-                                    <textarea rows="4" id="create_exchange_account_note" name="create_exchange_account_note" class="form-control" placeholder=""></textarea>
+                                    <textarea rows="3" id="create_exchange_account_add_key" name="create_exchange_account_add_key" class="form-control" maxlength="512" placeholder=""></textarea>
                                 </div>
                             </div>
                         </form>
@@ -360,9 +364,14 @@
                         <form id="form-edit-exaccount" class="form-horizontal mb-lg">
                             <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
                                 <input type="hidden" id="edit_exchange_account_id" name="edit_exchange_account_id" value="">
-                                <label class="control-label force-align-left">Exchange ID <span class="required">*</span></label>
+                                <label class="control-label force-align-left">Exchange <span class="required">*</span></label>
                                 <div class="">
-                                    <input type="number" id="edit_exchange_account_exid" name="edit_exchange_account_exid" class="form-control" placeholder="" required />
+                                    <select id="edit_exchange_account_exid" name="edit_exchange_account_exid" class="form-control" required>
+                                        <option value="">Select Exchange</option>
+                                        {{range .Exchanges}}
+                                        <option value="{{.ID}}" data-active="{{if .Active}}1{{else}}0{{end}}">{{.Name}}{{if not .Active}} (Blocked){{end}}</option>
+                                        {{end}}
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
@@ -386,28 +395,31 @@
                                     <input type="number" id="edit_exchange_account_priority" name="edit_exchange_account_priority" class="form-control" value="0" min="0" />
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
-                                <label class="control-label force-align-left">API Key <span class="required">*</span></label>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
+                                <label class="control-label force-align-left">API KEY Name (Note)</label>
                                 <div class="">
-                                    <input type="text" id="edit_exchange_account_api_key" name="edit_exchange_account_api_key" class="form-control" maxlength="512" placeholder="" required />
+                                    <input type="text" id="edit_exchange_account_note" name="edit_exchange_account_note" class="form-control" maxlength="1024" placeholder="" />
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
+                                <label class="control-label force-align-left">API Key</label>
+                                <div class="">
+                                    <textarea rows="3" id="edit_exchange_account_api_key" name="edit_exchange_account_api_key" class="form-control" maxlength="512" placeholder="Enter new API key to replace current"></textarea>
+                                    <small id="edit_api_key_state" class="text-muted"></small>
+                                </div>
+                            </div>
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
                                 <label class="control-label force-align-left">Secret Key</label>
                                 <div class="">
-                                    <input type="text" id="edit_exchange_account_secret_key" name="edit_exchange_account_secret_key" class="form-control" maxlength="512" placeholder="" />
+                                    <textarea rows="3" id="edit_exchange_account_secret_key" name="edit_exchange_account_secret_key" class="form-control" maxlength="512" placeholder="Enter new secret key to replace current"></textarea>
+                                    <small id="edit_secret_key_state" class="text-muted"></small>
                                 </div>
                             </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
+                            <div class="form-group col-md-12 col-sm-12" style="margin: 0px">
                                 <label class="control-label force-align-left">Add Key</label>
                                 <div class="">
-                                    <input type="text" id="edit_exchange_account_add_key" name="edit_exchange_account_add_key" class="form-control" maxlength="512" placeholder="" />
-                                </div>
-                            </div>
-                            <div class="form-group col-md-6 col-sm-6" style="margin: 0px">
-                                <label class="control-label force-align-left">Note</label>
-                                <div class="">
-                                    <textarea rows="4" id="edit_exchange_account_note" name="edit_exchange_account_note" class="form-control" placeholder=""></textarea>
+                                    <textarea rows="3" id="edit_exchange_account_add_key" name="edit_exchange_account_add_key" class="form-control" maxlength="512" placeholder="Enter new add key to replace current"></textarea>
+                                    <small id="edit_add_key_state" class="text-muted"></small>
                                 </div>
                             </div>
                         </form>

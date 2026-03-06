@@ -2,17 +2,81 @@
 (function() {
     let table;
 
+    function extractAjaxError(xhr, fallback) {
+        if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+            return xhr.responseJSON.error;
+        }
+        if (xhr && xhr.responseText) {
+            try {
+                var parsed = JSON.parse(xhr.responseText);
+                if (parsed && parsed.error) {
+                    return parsed.error;
+                }
+            } catch (e) {
+                // Ignore parse error and fallback to raw text.
+            }
+            if (xhr.responseText.trim() !== '') {
+                return xhr.responseText;
+            }
+        }
+        return fallback || 'Request failed';
+    }
+
+    function showError(text) {
+        new PNotify({ title: 'Error', text: text, type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    }
+
+    function showSuccess(text) {
+        new PNotify({ title: 'Success', text: text, type: 'success', addclass: 'stack-bar-top', width: '100%' });
+    }
+
+    function isSelectedExchangeActive($exchangeSelect) {
+        var active = $exchangeSelect.find('option:selected').data('active');
+        return active === 1 || active === '1' || active === true;
+    }
+
+    function renderStatusOptions($statusSelect, exchangeActive, preferredStatus) {
+        var options = exchangeActive
+            ? [
+                { value: 'Active', text: 'Active' },
+                { value: 'Blocked', text: 'Blocked' }
+            ]
+            : [
+                { value: 'Blocked', text: 'Blocked' }
+            ];
+
+        var nextStatus = preferredStatus || 'Blocked';
+        if (!exchangeActive && nextStatus === 'Active') {
+            nextStatus = 'Blocked';
+        }
+
+        $statusSelect.empty();
+        options.forEach(function(opt) {
+            var $o = $('<option>').val(opt.value).text(opt.text);
+            if (opt.value === nextStatus) {
+                $o.prop('selected', true);
+            }
+            $statusSelect.append($o);
+        });
+    }
+
+    function syncStatusByExchange(exchangeSelectSelector, statusSelectSelector, preferredStatus) {
+        var $exchange = $(exchangeSelectSelector);
+        var $status = $(statusSelectSelector);
+        var active = isSelectedExchangeActive($exchange);
+        renderStatusOptions($status, active, preferredStatus || $status.val());
+    }
+
     function initTable() {
         // Добавляем input поля поиска в заголовки таблицы
         var columnNames = Array(
             "",
             "ex_acc_id",
-            "ex_acc_exchange_id",
+            "ex_acc_exchange",
             "ex_acc_account_name",
+            "ex_acc_note",
             "ex_acc_priority",
             "ex_acc_status",
-            "ex_acc_api_key",
-            "ex_acc_note"
         );
 
         $('#dt-exchange-accounts thead tr th').each(function (i) {
@@ -36,12 +100,11 @@
             columns: [
                 { data: null, render: function(){ return "<input type='checkbox' class='t-row chbx-ch' value=''/>"; }},
                 { data: 'id' },
-                { data: 'exchange_id' },
+                { data: 'exchange_name' },
                 { data: 'account_name' },
+                { data: 'note' },
                 { data: 'priority' },
-                { data: 'status' },
-                { data: 'api_key' },
-                { data: 'note' }
+                { data: 'status' }
             ],
             columnDefs: [
                 {
@@ -84,7 +147,7 @@
     function loadAccountForEdit(id) {
         $.post('/exchange_accounts/ajax_getid_accounts', { id: id }, function(resp) {
             if (resp.error) {
-                new PNotify({ title: 'Error', text: resp.error, type: 'error', addclass: 'stack-bar-top', width: '100%' });
+                showError(resp.error);
                 return;
             }
             const form = $('#form-edit-exaccount')[0];
@@ -93,10 +156,15 @@
             $('[name=edit_exchange_account_exid]').val(resp.exchange_id);
             $('[name=edit_exchange_account_account_name]').val(resp.account_name);
             $('[name=edit_exchange_account_priority]').val(resp.priority);
-            $('[name=edit_exchange_account_status]').val(resp.status);
-            $('[name=edit_exchange_account_api_key]').val(resp.api_key);
-            $('[name=edit_exchange_account_secret_key]').val(resp.secret_key);
-            $('[name=edit_exchange_account_add_key]').val(resp.add_key);
+            syncStatusByExchange('#edit_exchange_account_exid', '#edit_exchange_account_status', resp.status);
+            // Do not show secret values in edit form; allow replace-only input.
+            $('[name=edit_exchange_account_api_key]').val('');
+            $('[name=edit_exchange_account_secret_key]').val('');
+            $('[name=edit_exchange_account_add_key]').val('');
+
+            $('#edit_api_key_state').text(resp.has_api_key ? 'Stored in DB' : 'Not set in DB');
+            $('#edit_secret_key_state').text(resp.has_secret_key ? 'Stored in DB' : 'Not set in DB');
+            $('#edit_add_key_state').text(resp.has_add_key ? 'Stored in DB' : 'Not set in DB');
             $('[name=edit_exchange_account_note]').val(resp.note || '');
             $.magnificPopup.open({
                 type: 'inline',
@@ -114,31 +182,59 @@
     function bindCreate() {
         $('#btn-save-exaccount').on('click', function() {
             const form = $('#form-create-exaccount');
-            $.post('/exchange_accounts/ajax_create_account', form.serialize(), function(resp) {
-                if (resp.error) {
-                    new PNotify({ title: 'Error', text: resp.error, type: 'error', addclass: 'stack-bar-top', width: '100%' });
-                    return;
+            if (!validateEmptyFormFields('form-create-exaccount')) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            $.ajax({
+                url: '/exchange_accounts/ajax_create_account',
+                type: 'POST',
+                data: form.serialize(),
+                dataType: 'json',
+                success: function(resp) {
+                    if (resp && resp.error) {
+                        showError(resp.error);
+                        return;
+                    }
+                    showSuccess('Account created');
+                    $.magnificPopup.close();
+                    form[0].reset();
+                    table.ajax.reload(null, false);
+                },
+                error: function(xhr) {
+                    showError(extractAjaxError(xhr, 'Failed to create account'));
                 }
-                new PNotify({ title: 'Success', text: 'Account created', type: 'success', addclass: 'stack-bar-top', width: '100%' });
-                $.magnificPopup.close();
-                form[0].reset();
-                table.ajax.reload(null, false);
-            }, 'json');
+            });
         });
     }
 
     function bindEdit() {
         $('#btn-update-exaccount').on('click', function() {
             const form = $('#form-edit-exaccount');
-            $.post('/exchange_accounts/ajax_edit_account', form.serialize(), function(resp) {
-                if (resp.error) {
-                    new PNotify({ title: 'Error', text: resp.error, type: 'error', addclass: 'stack-bar-top', width: '100%' });
-                    return;
+            if (!validateEmptyFormFields('form-edit-exaccount')) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            $.ajax({
+                url: '/exchange_accounts/ajax_edit_account',
+                type: 'POST',
+                data: form.serialize(),
+                dataType: 'json',
+                success: function(resp) {
+                    if (resp && resp.error) {
+                        showError(resp.error);
+                        return;
+                    }
+                    showSuccess('Account updated');
+                    $.magnificPopup.close();
+                    table.ajax.reload(null, false);
+                },
+                error: function(xhr) {
+                    showError(extractAjaxError(xhr, 'Failed to update account'));
                 }
-                new PNotify({ title: 'Success', text: 'Account updated', type: 'success', addclass: 'stack-bar-top', width: '100%' });
-                $.magnificPopup.close();
-                table.ajax.reload(null, false);
-            }, 'json');
+            });
         });
     }
 
@@ -146,6 +242,24 @@
         initTable();
         bindCreate();
         bindEdit();
+
+        // Keep status options consistent with selected exchange activity.
+        syncStatusByExchange('#create_exchange_account_exid', '#create_exchange_account_status', 'Active');
+        syncStatusByExchange('#edit_exchange_account_exid', '#edit_exchange_account_status', 'Blocked');
+
+        $('#create_exchange_account_exid').on('change', function() {
+            syncStatusByExchange('#create_exchange_account_exid', '#create_exchange_account_status');
+        });
+        $('#edit_exchange_account_exid').on('change', function() {
+            syncStatusByExchange('#edit_exchange_account_exid', '#edit_exchange_account_status');
+        });
+
+        // Remove red highlight when user fixes required fields.
+        $('#form-create-exaccount, #form-edit-exaccount').on('input change', 'input[required], textarea[required], select[required]', function() {
+            if ($(this).val() !== null && String($(this).val()).trim() !== '') {
+                $(this).removeClass('err');
+            }
+        });
     });
 })();
 

@@ -67,6 +67,7 @@ func (r *ExchangeRepository) FindByID(id int) (*models.Exchange, error) {
 
 	var exchange models.Exchange
 	var dateModify sql.NullTime
+	var url sql.NullString
 	var userCreated, userModify sql.NullInt64
 	var description sql.NullString
 	var websocketURL sql.NullString
@@ -74,7 +75,7 @@ func (r *ExchangeRepository) FindByID(id int) (*models.Exchange, error) {
 	err := db.DB.QueryRow(query, id).Scan(
 		&exchange.ID,
 		&exchange.Name,
-		&exchange.URL,
+		&url,
 		&exchange.BaseURL,
 		&websocketURL,
 		&exchange.ClassToFactory,
@@ -96,6 +97,9 @@ func (r *ExchangeRepository) FindByID(id int) (*models.Exchange, error) {
 	// Обрабатываем nullable поля
 	if description.Valid {
 		exchange.Description = &description.String
+	}
+	if url.Valid {
+		exchange.URL = url.String
 	}
 	if websocketURL.Valid {
 		exchange.WebsocketURL = &websocketURL.String
@@ -266,6 +270,66 @@ func (r *ExchangeRepository) FindAllActive() ([]*models.Exchange, error) {
 		}
 
 		exchanges = append(exchanges, &exchange)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return exchanges, nil
+}
+
+// FindAllActiveNames returns active exchanges with only ID and NAME fields.
+// Useful for lightweight dropdowns where full exchange payload is not required.
+func (r *ExchangeRepository) FindAllActiveNames() ([]*models.Exchange, error) {
+	query := `SELECT ID, NAME
+	FROM EXCHANGE
+	WHERE ACTIVE = 1 AND DELETED = 0
+	ORDER BY NAME ASC`
+
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	defer rows.Close()
+
+	exchanges := make([]*models.Exchange, 0)
+	for rows.Next() {
+		var ex models.Exchange
+		if err := rows.Scan(&ex.ID, &ex.Name); err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+		exchanges = append(exchanges, &ex)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return exchanges, nil
+}
+
+// FindAllNamesWithStatus returns non-deleted exchanges with ID, NAME, ACTIVE.
+// Useful for forms where the UI must react to blocked exchanges.
+func (r *ExchangeRepository) FindAllNamesWithStatus() ([]*models.Exchange, error) {
+	query := `SELECT ID, NAME, ACTIVE
+	FROM EXCHANGE
+	WHERE DELETED = 0
+	ORDER BY NAME ASC`
+
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	defer rows.Close()
+
+	exchanges := make([]*models.Exchange, 0)
+	for rows.Next() {
+		var ex models.Exchange
+		if err := rows.Scan(&ex.ID, &ex.Name, &ex.Active); err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+		exchanges = append(exchanges, &ex)
 	}
 
 	if err := rows.Err(); err != nil {

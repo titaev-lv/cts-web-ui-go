@@ -22,21 +22,26 @@ import "time"
 //   - UserCreated: ID пользователя, создавшего запись (nullable)
 //   - UserModify: ID пользователя, изменившего запись (nullable)
 type ExchangeAccount struct {
-	ID          int        `json:"id" db:"ID"`
-	ExID        int        `json:"exid" db:"EXID"`
-	UID         int        `json:"uid" db:"UID"`
-	AccountName string     `json:"account_name" db:"ACCOUNT_NAME"`
-	Priority    int        `json:"priority" db:"PRIORITY"`
-	Active      bool       `json:"active" db:"ACTIVE"`
-	ApiKey      string     `json:"api_key" db:"API_KEY"`
-	SecretKey   string     `json:"secret_key" db:"SECRET_KEY"`
-	AddKey      *string    `json:"add_key,omitempty" db:"ADD_KEY"`
-	Note        *string    `json:"note,omitempty" db:"NOTE"`
-	Deleted     bool       `json:"deleted" db:"DELETED"`
-	DateCreate  time.Time  `json:"date_create" db:"TIMESTAMP_X"`
-	DateModify  *time.Time `json:"date_modify,omitempty" db:"DATE_MODIFY"`
-	UserCreated *int       `json:"user_created,omitempty" db:"USER_CREATED"`
-	UserModify  *int       `json:"user_modify,omitempty" db:"USER_MODIFY"`
+	ID             int        `json:"id" db:"ID"`
+	ExID           int        `json:"exid" db:"EXID"`
+	ExchangeName   string     `json:"exchange_name,omitempty" db:"EXCHANGE_NAME"`
+	ExchangeActive bool       `json:"exchange_active" db:"EXCHANGE_ACTIVE"`
+	UID            int        `json:"uid" db:"UID"`
+	AccountName    string     `json:"account_name" db:"ACCOUNT_NAME"`
+	Priority       int        `json:"priority" db:"PRIORITY"`
+	Active         bool       `json:"active" db:"ACTIVE"`
+	ApiKey         string     `json:"api_key" db:"API_KEY_ENC"`
+	SecretKey      string     `json:"secret_key" db:"SECRET_KEY_ENC"`
+	AddKey         *string    `json:"add_key,omitempty" db:"ADD_KEY_ENC"`
+	DekEnc         string     `json:"dek_enc,omitempty" db:"DEK_ENC"`
+	EncKeyVersion  int        `json:"enc_key_version,omitempty" db:"ENC_KEY_VERSION"`
+	EncAlg         string     `json:"enc_alg,omitempty" db:"ENC_ALG"`
+	Note           *string    `json:"note,omitempty" db:"NOTE"`
+	Deleted        bool       `json:"deleted" db:"DELETED"`
+	DateCreate     time.Time  `json:"date_create" db:"TIMESTAMP_X"`
+	DateModify     *time.Time `json:"date_modify,omitempty" db:"DATE_MODIFY"`
+	UserCreated    *int       `json:"user_created,omitempty" db:"USER_CREATED"`
+	UserModify     *int       `json:"user_modify,omitempty" db:"USER_MODIFY"`
 }
 
 // IsActive возвращает true, если аккаунт активен и не удалён.

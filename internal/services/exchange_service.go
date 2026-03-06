@@ -2,6 +2,7 @@
 package services
 
 import (
+	"context"
 	"ctweb/internal/models"
 	"ctweb/internal/repositories"
 	"ctweb/internal/utils"
@@ -9,6 +10,14 @@ import (
 	"fmt"
 	"strings"
 )
+
+func isUnrecoverableDEKError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "decryption failed") || strings.Contains(msg, "hsm decrypt error")
+}
 
 // ExchangeService инкапсулирует валидацию и бизнес-логику для бирж и аккаунтов бирж.
 type ExchangeService struct {
@@ -226,19 +235,43 @@ func (s *ExchangeService) CreateExchangeAccount(userID, exchangeID int, accountN
 		return 0, err
 	}
 
-	acc := &models.ExchangeAccount{
-		ExID:        exchangeID,
-		UID:         userID,
-		AccountName: strings.TrimSpace(accountName),
-		Priority:    priority,
-		Active:      active,
-		ApiKey:      strings.TrimSpace(apiKey),
-		SecretKey:   strings.TrimSpace(secretKey),
+	dek, err := newRandomDEK()
+	if err != nil {
+		return 0, err
+	}
+	dekEnc, encKeyVersion, encAlg, err := encryptDEKWithHSM(context.Background(), dek)
+	if err != nil {
+		return 0, err
 	}
 
-	trimmedAddKey := strings.TrimSpace(addKey)
-	if trimmedAddKey != "" {
-		acc.AddKey = &trimmedAddKey
+	encryptedAPIKey, err := encryptWithDEK(dek, strings.TrimSpace(apiKey))
+	if err != nil {
+		return 0, err
+	}
+	encryptedSecretKey, err := encryptWithDEK(dek, strings.TrimSpace(secretKey))
+	if err != nil {
+		return 0, err
+	}
+	encryptedAddKey, err := encryptWithDEK(dek, strings.TrimSpace(addKey))
+	if err != nil {
+		return 0, err
+	}
+
+	acc := &models.ExchangeAccount{
+		ExID:          exchangeID,
+		UID:           userID,
+		AccountName:   strings.TrimSpace(accountName),
+		Priority:      priority,
+		Active:        active,
+		ApiKey:        encryptedAPIKey,
+		SecretKey:     encryptedSecretKey,
+		DekEnc:        dekEnc,
+		EncKeyVersion: encKeyVersion,
+		EncAlg:        encAlg,
+	}
+
+	if strings.TrimSpace(encryptedAddKey) != "" {
+		acc.AddKey = &encryptedAddKey
 	}
 
 	trimmedNote := strings.TrimSpace(note)
@@ -251,12 +284,162 @@ func (s *ExchangeService) CreateExchangeAccount(userID, exchangeID int, accountN
 
 // UpdateExchangeAccount валидирует и обновляет аккаунт.
 func (s *ExchangeService) UpdateExchangeAccount(id, userID, exchangeID int, accountName, status string, priority int, apiKey, secretKey, addKey, note string) error {
-	active, err := s.ValidateExchangeAccount(accountName, status, priority, apiKey)
+	if strings.TrimSpace(accountName) == "" {
+		return errors.New("account name is required")
+	}
+	if priority < 0 {
+		return errors.New("priority must be >= 0")
+	}
+
+	active, err := normalizeAccountStatus(status)
 	if err != nil {
 		return err
 	}
 	if err := s.EnsureExchangeAccountNameUnique(userID, exchangeID, accountName, &id); err != nil {
 		return err
+	}
+
+	existing, err := s.accountRepo.FindByID(id, userID)
+	if err != nil {
+		return err
+	}
+
+	apiProvided := strings.TrimSpace(apiKey) != ""
+	secretProvided := strings.TrimSpace(secretKey) != ""
+	addProvided := strings.TrimSpace(addKey) != ""
+
+	finalAPIEnc := ""
+	finalSecretEnc := ""
+	var finalAddEnc *string
+
+	encMetaChanged := false
+	dekEnc := existing.DekEnc
+	encKeyVersion := existing.EncKeyVersion
+	encAlg := existing.EncAlg
+
+	if apiProvided || secretProvided || addProvided {
+		if strings.TrimSpace(existing.DekEnc) != "" {
+			dek, dekErr := decryptDEKWithHSM(context.Background(), existing.DekEnc, existing.EncAlg, existing.EncKeyVersion)
+			if dekErr != nil {
+				if !isUnrecoverableDEKError(dekErr) {
+					return fmt.Errorf("failed to decrypt credentials DEK: %w", dekErr)
+				}
+
+				// Old KEK is unavailable. Allow forced re-key with newly provided credentials.
+				if !apiProvided {
+					return errors.New("stored credentials are encrypted with a retired KEK and cannot be decrypted; provide a new API key to reset credentials")
+				}
+
+				newDEK, genErr := newRandomDEK()
+				if genErr != nil {
+					return genErr
+				}
+				newDekEnc, newEncKeyVersion, newEncAlg, wrapErr := encryptDEKWithHSM(context.Background(), newDEK)
+				if wrapErr != nil {
+					return wrapErr
+				}
+
+				encAPI, encErr := encryptWithDEK(newDEK, strings.TrimSpace(apiKey))
+				if encErr != nil {
+					return encErr
+				}
+				encSecret, encErr := encryptWithDEK(newDEK, strings.TrimSpace(secretKey))
+				if encErr != nil {
+					return encErr
+				}
+				encAdd, encErr := encryptWithDEK(newDEK, strings.TrimSpace(addKey))
+				if encErr != nil {
+					return encErr
+				}
+
+				finalAPIEnc = encAPI
+				finalSecretEnc = encSecret
+				if strings.TrimSpace(encAdd) != "" {
+					finalAddEnc = &encAdd
+				}
+
+				dekEnc = newDekEnc
+				encKeyVersion = newEncKeyVersion
+				encAlg = newEncAlg
+				encMetaChanged = true
+			} else {
+				if apiProvided {
+					enc, encErr := encryptWithDEK(dek, strings.TrimSpace(apiKey))
+					if encErr != nil {
+						return encErr
+					}
+					finalAPIEnc = enc
+				}
+				if secretProvided {
+					enc, encErr := encryptWithDEK(dek, strings.TrimSpace(secretKey))
+					if encErr != nil {
+						return encErr
+					}
+					finalSecretEnc = enc
+				}
+				if addProvided {
+					enc, encErr := encryptWithDEK(dek, strings.TrimSpace(addKey))
+					if encErr != nil {
+						return encErr
+					}
+					if strings.TrimSpace(enc) != "" {
+						finalAddEnc = &enc
+					}
+				}
+			}
+		} else {
+			// Legacy row without DEK: treat existing values as plaintext and migrate to envelope encryption.
+			plainAPI := strings.TrimSpace(apiKey)
+			if plainAPI == "" {
+				plainAPI = strings.TrimSpace(existing.ApiKey)
+			}
+			if plainAPI == "" {
+				return errors.New("api key is required for credential encryption migration")
+			}
+
+			plainSecret := strings.TrimSpace(secretKey)
+			if plainSecret == "" {
+				plainSecret = strings.TrimSpace(existing.SecretKey)
+			}
+
+			plainAdd := strings.TrimSpace(addKey)
+			if plainAdd == "" && existing.AddKey != nil {
+				plainAdd = strings.TrimSpace(*existing.AddKey)
+			}
+
+			dek, dekErr := newRandomDEK()
+			if dekErr != nil {
+				return dekErr
+			}
+			newDekEnc, newEncKeyVersion, newEncAlg, encErr := encryptDEKWithHSM(context.Background(), dek)
+			if encErr != nil {
+				return encErr
+			}
+
+			encAPI, encErr := encryptWithDEK(dek, plainAPI)
+			if encErr != nil {
+				return encErr
+			}
+			encSecret, encErr := encryptWithDEK(dek, plainSecret)
+			if encErr != nil {
+				return encErr
+			}
+			encAdd, encErr := encryptWithDEK(dek, plainAdd)
+			if encErr != nil {
+				return encErr
+			}
+
+			finalAPIEnc = encAPI
+			finalSecretEnc = encSecret
+			if strings.TrimSpace(encAdd) != "" {
+				finalAddEnc = &encAdd
+			}
+
+			dekEnc = newDekEnc
+			encKeyVersion = newEncKeyVersion
+			encAlg = newEncAlg
+			encMetaChanged = true
+		}
 	}
 
 	acc := &models.ExchangeAccount{
@@ -266,13 +449,17 @@ func (s *ExchangeService) UpdateExchangeAccount(id, userID, exchangeID int, acco
 		AccountName: strings.TrimSpace(accountName),
 		Priority:    priority,
 		Active:      active,
-		ApiKey:      strings.TrimSpace(apiKey),
-		SecretKey:   strings.TrimSpace(secretKey),
+		ApiKey:      finalAPIEnc,
+		SecretKey:   finalSecretEnc,
+	}
+	if encMetaChanged {
+		acc.DekEnc = dekEnc
+		acc.EncKeyVersion = encKeyVersion
+		acc.EncAlg = encAlg
 	}
 
-	trimmedAddKey := strings.TrimSpace(addKey)
-	if trimmedAddKey != "" {
-		acc.AddKey = &trimmedAddKey
+	if finalAddEnc != nil {
+		acc.AddKey = finalAddEnc
 	}
 
 	trimmedNote := strings.TrimSpace(note)
