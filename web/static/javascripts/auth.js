@@ -16,7 +16,7 @@ $(function () {
 
         // Получаем форму
         var $form = $(this);
-        
+
         // Блокируем кнопки отправки, чтобы предотвратить повторную отправку
         var $submitButtons = $form.find('button[type="submit"]');
         $submitButtons.prop('disabled', true);
@@ -35,6 +35,11 @@ $(function () {
                 // Проверяем наличие ошибки
                 // В PHP: ret.error !== false && ret.error !== ''
                 // В Go: error может быть строкой или false
+                if (response.requires_2fa === true) {
+                    window.location.href = '/login/2fa';
+                    return;
+                }
+
                 if (response.error && response.error !== false && response.error !== '') {
                     // Есть ошибка - показываем уведомление
                     new PNotify({
@@ -107,5 +112,6 @@ $(function () {
         // Возвращаем false, чтобы предотвратить стандартную отправку формы
         return false;
     });
+
 });
 

@@ -86,6 +86,22 @@ databases:
       max_batch_size: 10000
       replication_factor: 1
 
+hsm:
+  enabled: true
+  url: "https://ct-system-hsm:8443"
+  context: "2fa"
+  timeout: 10s
+  retry:
+    max_attempts: 3
+    initial_delay: 300ms
+    max_delay: 2s
+    multiplier: 2.0
+  tls:
+    enabled: true
+    ca_path: "pki/ca/ca.crt"
+    cert_path: "pki/hsm-service/clients/web-ui-2fa/web-ui-hsm-2fa.crt"
+    key_path: "pki/hsm-service/clients/web-ui-2fa/web-ui-hsm-2fa.key"
+
 # Security configuration
 security:
   csrf:

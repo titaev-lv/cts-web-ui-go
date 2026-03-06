@@ -19,9 +19,28 @@ type Config struct {
 	Server    ServerConfig    `mapstructure:"server"`     // Настройки HTTP сервера
 	Proxy     ProxyConfig     `mapstructure:"proxy"`      // Настройки reverse-proxy режима
 	Databases DatabasesConfig `mapstructure:"databases"`  // Унифицированные настройки подключений к БД
+	HSM       HSMConfig       `mapstructure:"hsm"`        // Настройки HSM для 2FA
 	Security  SecurityConfig  `mapstructure:"security"`   // Настройки безопасности
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"` // Глобальные настройки rate limiting
 	Logging   LoggingConfig   `mapstructure:"logging"`    // Настройки логирования
+}
+
+// HSMConfig defines HSM client settings used by web-ui for 2FA secret encryption.
+type HSMConfig struct {
+	Enabled bool              `mapstructure:"enabled"`
+	URL     string            `mapstructure:"url"`
+	Context string            `mapstructure:"context"`
+	Timeout time.Duration     `mapstructure:"timeout"`
+	Retry   HSMRetryConfig    `mapstructure:"retry"`
+	TLS     DatabaseTLSConfig `mapstructure:"tls"`
+}
+
+// HSMRetryConfig defines retry policy for HSM requests.
+type HSMRetryConfig struct {
+	MaxAttempts  int           `mapstructure:"max_attempts"`
+	InitialDelay time.Duration `mapstructure:"initial_delay"`
+	MaxDelay     time.Duration `mapstructure:"max_delay"`
+	Multiplier   float64       `mapstructure:"multiplier"`
 }
 
 // ProxyConfig - настройки работы web-ui за reverse proxy (nginx).
@@ -515,6 +534,39 @@ func validate(cfg *Config) error {
 
 	if cfg.Databases.System.Engine != "mysql" {
 		return fmt.Errorf("unsupported databases.system.engine: %s", cfg.Databases.System.Engine)
+	}
+
+	if cfg.HSM.Enabled {
+		if strings.TrimSpace(cfg.HSM.URL) == "" {
+			return fmt.Errorf("hsm.url is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.Context) == "" {
+			cfg.HSM.Context = "2fa"
+		}
+		if cfg.HSM.Timeout == 0 {
+			cfg.HSM.Timeout = 10 * time.Second
+		}
+		if strings.TrimSpace(cfg.HSM.TLS.CAPath) == "" {
+			return fmt.Errorf("hsm.tls.ca_path is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.TLS.CertPath) == "" {
+			return fmt.Errorf("hsm.tls.cert_path is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.TLS.KeyPath) == "" {
+			return fmt.Errorf("hsm.tls.key_path is required when hsm.enabled=true")
+		}
+		if cfg.HSM.Retry.MaxAttempts == 0 {
+			cfg.HSM.Retry.MaxAttempts = 3
+		}
+		if cfg.HSM.Retry.InitialDelay == 0 {
+			cfg.HSM.Retry.InitialDelay = 300 * time.Millisecond
+		}
+		if cfg.HSM.Retry.MaxDelay == 0 {
+			cfg.HSM.Retry.MaxDelay = 2 * time.Second
+		}
+		if cfg.HSM.Retry.Multiplier == 0 {
+			cfg.HSM.Retry.Multiplier = 2.0
+		}
 	}
 
 	if cfg.RateLimit.Login.RequestsPerMinute > 0 && cfg.Security.RateLimitLogin > 0 && cfg.RateLimit.Login.RequestsPerMinute != cfg.Security.RateLimitLogin {

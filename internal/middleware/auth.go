@@ -50,6 +50,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		public := map[string]bool{
 			"/health":      true, // Health endpoint для monitoring probes
 			"/login":       true, // Страница входа
+			"/login/2fa":   true, // Страница второго шага входа
 			"/auth/login":  true, // Обработка формы входа
 			"/favicon.ico": true, // Favicon (браузеры запрашивают автоматически)
 		}

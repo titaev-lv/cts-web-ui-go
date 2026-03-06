@@ -32,6 +32,10 @@ const (
 	SessionKeyUserEmail    = "ct_user_email"    // Email пользователя (как в PHP: $_SESSION['ct_user']['email'])
 	SessionKeyUserGroups   = "ct_user_grp"      // Группы пользователя (как в PHP: $_SESSION['ct_user']['grp'])
 	SessionKeyUserTimezone = "ct_user_timezone" // Часовой пояс (как в PHP: $_SESSION['ct_user']['timezone'])
+	SessionKey2FAPending   = "ct_2fa_pending"
+	SessionKey2FAUserID    = "ct_2fa_user_id"
+	SessionKey2FARemember  = "ct_2fa_remember"
+	SessionKey2FAToken     = "ct_2fa_token"
 )
 
 // CookieNames - имена cookies (как в PHP)
@@ -160,6 +164,11 @@ func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *
 	session.Options.Secure = sm.isSecureRequest(r)
 
 	// Сохраняем данные пользователя в сессию (как в PHP)
+	delete(session.Values, SessionKey2FAPending)
+	delete(session.Values, SessionKey2FAUserID)
+	delete(session.Values, SessionKey2FARemember)
+	delete(session.Values, SessionKey2FAToken)
+
 	session.Values[SessionKeyAuth] = true
 	session.Values[SessionKeyUserID] = user.ID
 	session.Values[SessionKeyUserName] = user.GetFullName()
@@ -173,6 +182,70 @@ func (sm *SessionManager) SetUser(r *http.Request, w http.ResponseWriter, user *
 	// Сохраняем сессию
 	if err := session.Save(r, w); err != nil {
 		return fmt.Errorf("failed to save session: %w", err)
+	}
+
+	return nil
+}
+
+// SetPending2FA сохраняет состояние незавершенного 2FA-логина в сессии.
+func (sm *SessionManager) SetPending2FA(r *http.Request, w http.ResponseWriter, userID int, remember bool, token string) error {
+	session, err := sm.GetSession(r, w)
+	if err != nil {
+		return err
+	}
+
+	session.Options.Secure = sm.isSecureRequest(r)
+	session.Values[SessionKeyAuth] = false
+	session.Values[SessionKey2FAPending] = true
+	session.Values[SessionKey2FAUserID] = userID
+	session.Values[SessionKey2FARemember] = remember
+	session.Values[SessionKey2FAToken] = token
+
+	if err := session.Save(r, w); err != nil {
+		return fmt.Errorf("failed to save pending 2FA session: %w", err)
+	}
+
+	return nil
+}
+
+// GetPending2FA возвращает состояние pending 2FA, если оно есть в сессии.
+func (sm *SessionManager) GetPending2FA(r *http.Request) (userID int, remember bool, token string, exists bool, err error) {
+	session, err := sm.store.Get(r, sm.config.Security.Session.CookieName)
+	if err != nil {
+		return 0, false, "", false, err
+	}
+
+	pending, ok := session.Values[SessionKey2FAPending].(bool)
+	if !ok || !pending {
+		return 0, false, "", false, nil
+	}
+
+	uid, ok := session.Values[SessionKey2FAUserID].(int)
+	if !ok || uid <= 0 {
+		return 0, false, "", false, nil
+	}
+
+	rem, _ := session.Values[SessionKey2FARemember].(bool)
+	tok, _ := session.Values[SessionKey2FAToken].(string)
+
+	return uid, rem, tok, true, nil
+}
+
+// ClearPending2FA очищает состояние pending 2FA из сессии.
+func (sm *SessionManager) ClearPending2FA(r *http.Request, w http.ResponseWriter) error {
+	session, err := sm.GetSession(r, w)
+	if err != nil {
+		return err
+	}
+
+	session.Options.Secure = sm.isSecureRequest(r)
+	delete(session.Values, SessionKey2FAPending)
+	delete(session.Values, SessionKey2FAUserID)
+	delete(session.Values, SessionKey2FARemember)
+	delete(session.Values, SessionKey2FAToken)
+
+	if err := session.Save(r, w); err != nil {
+		return fmt.Errorf("failed to clear pending 2FA session: %w", err)
 	}
 
 	return nil

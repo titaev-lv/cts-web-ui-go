@@ -7,6 +7,7 @@ import (
 	"ctweb/internal/logger"
 	"ctweb/internal/models"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -269,6 +270,189 @@ func (r *UserRepository) FindByLoginAndToken(login, token string) (*models.User,
 	}
 
 	return &user, nil
+}
+
+// Is2FAEnabled проверяет, включена ли 2FA для пользователя.
+//
+// Возвращает:
+//   - bool: true, если 2FA включена; false, если выключена или запись отсутствует.
+//   - error: ошибка БД (кроме sql.ErrNoRows).
+func (r *UserRepository) Is2FAEnabled(userID int) (bool, error) {
+	query := `SELECT ENABLED FROM USER_2FA WHERE USER_ID = ?`
+
+	var enabled bool
+	err := db.DB.QueryRow(query, userID).Scan(&enabled)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get 2FA status for user %d: %w", userID, err)
+	}
+
+	return enabled, nil
+}
+
+// Set2FAEnabled включает/выключает 2FA для пользователя.
+// Если записи в USER_2FA нет, создаёт её.
+func (r *UserRepository) Set2FAEnabled(userID int, enabled bool) error {
+	query := `INSERT INTO USER_2FA (USER_ID, ENABLED)
+		VALUES (?, ?)
+		ON DUPLICATE KEY UPDATE ENABLED = VALUES(ENABLED)`
+
+	if _, err := db.DB.Exec(query, userID, enabled); err != nil {
+		return fmt.Errorf("failed to set 2FA status for user %d: %w", userID, err)
+	}
+
+	return nil
+}
+
+// TwoFARecord holds USER_2FA row fields required for setup/verification flow.
+type TwoFARecord struct {
+	UserID         int
+	Enabled        bool
+	SecretEnc      string
+	RecoveryHashes []string
+	EncKeyVersion  int
+	NeedsReencrypt bool
+}
+
+// Upsert2FASecret stores encrypted TOTP secret and marks 2FA as not enabled until verification.
+func (r *UserRepository) Upsert2FASecret(userID int, secretEnc string, encKeyVersion int) error {
+	query := `INSERT INTO USER_2FA (USER_ID, ENABLED, SECRET_ENC, ENC_KEY_VERSION, NEEDS_REENCRYPTION)
+		VALUES (?, 0, ?, ?, 0)
+		ON DUPLICATE KEY UPDATE
+			ENABLED = 0,
+			SECRET_ENC = VALUES(SECRET_ENC),
+			ENC_KEY_VERSION = VALUES(ENC_KEY_VERSION),
+			NEEDS_REENCRYPTION = 0,
+			UPDATED_AT = CURRENT_TIMESTAMP`
+
+	if _, err := db.DB.Exec(query, userID, secretEnc, encKeyVersion); err != nil {
+		return fmt.Errorf("failed to upsert 2FA secret for user %d: %w", userID, err)
+	}
+
+	return nil
+}
+
+// Get2FARecord returns USER_2FA record for a user, or nil if absent.
+func (r *UserRepository) Get2FARecord(userID int) (*TwoFARecord, error) {
+	query := `SELECT USER_ID, ENABLED, SECRET_ENC, RECOVERY_CODES_HASHES, ENC_KEY_VERSION, NEEDS_REENCRYPTION
+		FROM USER_2FA
+		WHERE USER_ID = ?`
+
+	var rec TwoFARecord
+	var secretEnc sql.NullString
+	var recoveryHashes sql.NullString
+	var encKeyVersion sql.NullInt64
+	var needsReencrypt sql.NullBool
+
+	err := db.DB.QueryRow(query, userID).Scan(
+		&rec.UserID,
+		&rec.Enabled,
+		&secretEnc,
+		&recoveryHashes,
+		&encKeyVersion,
+		&needsReencrypt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to load 2FA record for user %d: %w", userID, err)
+	}
+
+	if secretEnc.Valid {
+		rec.SecretEnc = secretEnc.String
+	}
+	if recoveryHashes.Valid && strings.TrimSpace(recoveryHashes.String) != "" {
+		_ = json.Unmarshal([]byte(recoveryHashes.String), &rec.RecoveryHashes)
+	}
+	if encKeyVersion.Valid {
+		rec.EncKeyVersion = int(encKeyVersion.Int64)
+	}
+	if needsReencrypt.Valid {
+		rec.NeedsReencrypt = needsReencrypt.Bool
+	}
+
+	return &rec, nil
+}
+
+// Enable2FA sets USER_2FA.ENABLED to true.
+func (r *UserRepository) Enable2FA(userID int) error {
+	query := `UPDATE USER_2FA SET ENABLED = 1, UPDATED_AT = CURRENT_TIMESTAMP WHERE USER_ID = ?`
+	result, err := db.DB.Exec(query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to enable 2FA for user %d: %w", userID, err)
+	}
+
+	rows, err := db.GetRowsAffected(result)
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for 2FA enable: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("2FA record for user %d not found", userID)
+	}
+
+	return nil
+}
+
+// UpdateRecoveryCodeHashes stores updated recovery code hashes JSON for a user.
+func (r *UserRepository) UpdateRecoveryCodeHashes(userID int, recoveryCodesHashesJSON string) error {
+	query := `UPDATE USER_2FA
+		SET RECOVERY_CODES_HASHES = CAST(? AS JSON),
+			UPDATED_AT = CURRENT_TIMESTAMP
+		WHERE USER_ID = ?`
+
+	if _, err := db.DB.Exec(query, recoveryCodesHashesJSON, userID); err != nil {
+		return fmt.Errorf("failed to update recovery code hashes for user %d: %w", userID, err)
+	}
+
+	return nil
+}
+
+// Enable2FAWithRecovery sets ENABLED=1 and persists encrypted recovery codes and hashes.
+func (r *UserRepository) Enable2FAWithRecovery(userID int, recoveryCodesEnc string, recoveryCodesHashesJSON string, encKeyVersion int) error {
+	query := `UPDATE USER_2FA
+		SET ENABLED = 1,
+			RECOVERY_CODES_ENC = ?,
+			RECOVERY_CODES_HASHES = CAST(? AS JSON),
+			ENC_KEY_VERSION = ?,
+			UPDATED_AT = CURRENT_TIMESTAMP
+		WHERE USER_ID = ?`
+
+	result, err := db.DB.Exec(query, recoveryCodesEnc, recoveryCodesHashesJSON, encKeyVersion, userID)
+	if err != nil {
+		return fmt.Errorf("failed to enable 2FA with recovery codes for user %d: %w", userID, err)
+	}
+
+	rows, err := db.GetRowsAffected(result)
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for 2FA enable with recovery: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("2FA record for user %d not found", userID)
+	}
+
+	return nil
+}
+
+// DisableAndClear2FA disables 2FA and clears stored secrets.
+func (r *UserRepository) DisableAndClear2FA(userID int) error {
+	query := `UPDATE USER_2FA
+		SET ENABLED = 0,
+			SECRET_ENC = NULL,
+			RECOVERY_CODES_ENC = NULL,
+			RECOVERY_CODES_HASHES = NULL,
+			ENC_KEY_VERSION = NULL,
+			NEEDS_REENCRYPTION = 0,
+			UPDATED_AT = CURRENT_TIMESTAMP
+		WHERE USER_ID = ?`
+
+	if _, err := db.DB.Exec(query, userID); err != nil {
+		return fmt.Errorf("failed to disable and clear 2FA for user %d: %w", userID, err)
+	}
+
+	return nil
 }
 
 // FindGroupsByUserID находит все группы пользователя (включая неактивные).

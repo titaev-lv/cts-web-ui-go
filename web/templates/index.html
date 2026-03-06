@@ -151,6 +151,12 @@
                                         </a>
                                     </li>
                                     {{end}}
+                                    <li>
+                                        <a href="/user_profile/">
+                                            <i class="fa fa-cogs" aria-hidden="true"></i>
+                                            <span>User Profile</span>
+                                        </a>
+                                    </li>
                                 </ul>
                             </nav>
                             <hr class="separator" />
@@ -194,6 +200,14 @@
                                 <strong>Welcome, {{.User.Name}} {{.User.LastName}}!</strong>
                                 You are successfully authenticated in the system. You can start working.
                             </div>
+
+                            {{if not .TwoFAEnabled}}
+                            <div class="alert alert-danger" role="alert">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                For better account security, it is strongly recommended to enable two-factor authentication in
+                                <a href="/user_profile/" class="alert-link">User Profile</a>.
+                            </div>
+                            {{end}}
                             
                             <div class="row">
                                 <div class="col-md-6">
@@ -233,6 +247,16 @@
                                                             {{end}}
                                                         </td>
                                                     </tr>
+                                                    <tr>
+                                                        <td><strong>2FA:</strong></td>
+                                                        <td>
+                                                            {{if .TwoFAEnabled}}
+                                                                <span class="label label-success">Enabled</span>
+                                                            {{else}}
+                                                                <span class="label label-default">Disabled</span>
+                                                            {{end}}
+                                                        </td>
+                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -249,6 +273,7 @@
                                         <div class="panel-body">
                                             <p>Quick access to system features:</p>
                                             <ul class="list-unstyled">
+                                                <li><a href="/user_profile/"><i class="fa fa-cogs"></i> User Profile</a></li>
                                                 <li><a href="/exchange_accounts/"><i class="fa fa-bank"></i> View Exchange Accounts</a></li>
                                                 <li><a href="/positions_calc/"><i class="fa fa-cubes"></i> View Trade Positions</a></li>
                                                 <li><a href="/market_analysis/"><i class="fa fa-align-left"></i> Market Analysis</a></li>

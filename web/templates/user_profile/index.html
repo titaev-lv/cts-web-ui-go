@@ -1,0 +1,868 @@
+{{define "user_profile/index.html"}}
+<!doctype html>
+<html class="fixed">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{.Title}} - CT-System</title>
+        <meta name="keywords" content="" />
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
+
+        <link rel="stylesheet" href="/assets/vendor/bootstrap/css/bootstrap.css" />
+        <link rel="stylesheet" href="/assets/vendor/font-awesome/css/font-awesome.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.css" />
+
+        <link rel="stylesheet" href="/assets/vendor/jquery-ui/css/ui-lightness/jquery-ui-1.10.4.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/select2/select2.css" />
+        <link rel="stylesheet" href="/assets/vendor/jquery-datatables-bs3/assets/css/datatables.css" />
+
+        <link rel="stylesheet" href="/assets/stylesheets/theme.css" />
+        <link rel="stylesheet" href="/assets/stylesheets/skins/default.css" />
+        <link rel="stylesheet" href="/assets/stylesheets/theme-custom.css">
+
+        <link rel="stylesheet" href="/assets/vendor/magnific-popup/magnific-popup.css" />
+        <link rel="stylesheet" href="/assets/vendor/pnotify/pnotify.custom.css" />
+        <link rel="stylesheet" href="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.css" />
+        <link rel="stylesheet" href="/assets/stylesheets/ct.css">
+
+        <script src="/assets/vendor/modernizr/modernizr.js"></script>
+        <script src="/assets/vendor/jquery/jquery-3.7.1.js"></script>
+        <script src="/assets/vendor/bootstrap/js/bootstrap.js"></script>
+    </head>
+    <body data-twofa-enabled="{{if .TwoFAEnabled}}1{{else}}0{{end}}">
+        <section class="body">
+            <header class="header">
+                <div class="logo-container">
+                    <a href="/" class="logo">
+                        <span style="color:#34495e;font-size: 200%">CT-System</span>
+                    </a>
+                    <div class="visible-xs toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html" data-fire-event="sidebar-left-opened">
+                        <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <span class="separator"></span>
+                    <div id="userbox" class="userbox">
+                        <a href="#" data-toggle="dropdown">
+                            <figure class="profile-picture">
+                                <img src="/assets/images/!logged-user.jpg" alt="" class="img-circle" data-lock-picture="assets/images/!logged-user.jpg" />
+                            </figure>
+                            <div class="profile-info" data-lock-name="" data-lock-email="">
+                                <span class="name">{{.User.Name}} {{.User.LastName}}</span>
+                                <span class="role">{{.User.Email}}</span>
+                            </div>
+                        </a>
+                        <a role="menuitem" tabindex="-1" href="/auth/logout"><i class="fa fa-power-off"></i> Logoff</a>
+                    </div>
+                </div>
+            </header>
+
+            <div class="inner-wrapper">
+                <aside id="sidebar-left" class="sidebar-left">
+                    <div class="sidebar-header">
+                        <div class="sidebar-title"></div>
+                        <div class="sidebar-toggle hidden-xs" data-toggle-class="sidebar-left-collapsed" data-target="html" data-fire-event="sidebar-left-toggle">
+                            <i class="fa fa-bars" aria-label="Toggle sidebar"></i>
+                        </div>
+                    </div>
+
+                    <div class="nano">
+                        <div class="nano-content">
+                            <nav id="menu" class="nav-main" role="navigation">
+                                <ul class="nav nav-main">
+                                    <li class="nav-parent">
+                                        <a>
+                                            <i class="fa fa-align-left" aria-hidden="true"></i>
+                                            <span>Market Analysis</span>
+                                        </a>
+                                        <ul class="nav nav-children">
+                                            <li><a href="/market_analysis/">K-Lines between Exchanges</a></li>
+                                            <li><a href="/market_analysis/direct_exs">Direct arbitration between Exchanges</a></li>
+                                        </ul>
+                                    </li>
+                                    <li><a href="/positions_calc/"><i class="fa fa-cubes" aria-hidden="true"></i><span>Trade Positions</span></a></li>
+                                    <li><a href="/exchange_accounts/"><i class="fa fa-bank" aria-hidden="true"></i><span>Exchange Accounts</span></a></li>
+                                    {{if .User.IsAdmin}}
+                                    <li><a href="/exchange_manage/"><i class="fa fa-cog" aria-hidden="true"></i><span>Exchange Manage</span></a></li>
+                                    <li><a href="/coins/"><i class="fa fa-money" aria-hidden="true"></i><span>Coins</span></a></li>
+                                    <li><a href="/users/"><i class="fa fa-user" aria-hidden="true"></i><span>Users</span></a></li>
+                                    <li><a href="/groups/"><i class="fa fa-users" aria-hidden="true"></i><span>User's Groups</span></a></li>
+                                    <li><a href="/daemon/"><i class="fa fa-sitemap" aria-hidden="true"></i><span>Daemon Manage</span></a></li>
+                                    {{end}}
+                                    <li><a href="/user_profile/"><i class="fa fa-cogs" aria-hidden="true"></i><span>User Profile</span></a></li>
+                                </ul>
+                            </nav>
+                            <hr class="separator" />
+                        </div>
+                    </div>
+                </aside>
+
+                <section role="main" class="content-body">
+                    <br><br>
+                    <header class="page-header">
+                        <h2>User Profile</h2>
+                        <div class="right-wrapper pull-right">
+                            <ol class="breadcrumbs">
+                                <li><a href="/"><span>Home</span></a></li>
+                                <li><span>User Profile</span></li>
+                            </ol>
+                            <a class="sidebar-right-toggle" data-open="sidebar-right"><i class="fa fa-chevron-left"></i></a>
+                        </div>
+                    </header>
+
+                    <section class="panel">
+                        <header class="panel-heading">
+                            <div class="panel-actions">
+                                <a href="#" class="fa fa-caret-down"></a>
+                                <a href="#" class="fa fa-times"></a>
+                            </div>
+                            <h2 class="panel-title">Welcome to CT-System</h2>
+                        </header>
+                        <div class="panel-body">
+                            <div class="alert alert-info" role="alert">
+                                <i class="fa fa-info-circle"></i>
+                                <strong>Welcome, {{.User.Name}} {{.User.LastName}}!</strong>
+                                Manage your profile settings below.
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title"><i class="fa fa-user" aria-hidden="true"></i> User Information</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <table class="table table-condensed">
+                                                <tbody>
+                                                    <tr><td><strong>Login:</strong></td><td>{{.User.Login}}</td></tr>
+                                                    <tr><td><strong>Name:</strong></td><td id="profile_info_name">{{.User.Name}} {{.User.LastName}}</td></tr>
+                                                    <tr><td><strong>Email:</strong></td><td id="profile_info_email">{{.User.Email}}</td></tr>
+                                                    <tr><td><strong>Timezone:</strong></td><td id="profile_info_timezone">{{.User.Timezone}}</td></tr>
+                                                    <tr>
+                                                        <td><strong>Status:</strong></td>
+                                                        <td>
+                                                            {{if .User.Active}}
+                                                                <span class="label label-success">Active</span>
+                                                            {{else}}
+                                                                <span class="label label-danger">Inactive</span>
+                                                            {{end}}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><strong>2FA:</strong></td>
+                                                        <td>
+                                                            {{if .TwoFAEnabled}}
+                                                                <span id="profile_info_2fa" class="label label-success">Enabled</span>
+                                                            {{else}}
+                                                                <span id="profile_info_2fa" class="label label-default">Disabled</span>
+                                                            {{end}}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title"><i class="fa fa-cogs" aria-hidden="true"></i> Profile Settings</h4>
+                                        </div>
+                                        <div class="panel-body">
+                                            <ul class="nav nav-tabs" id="profile-tabs">
+                                                <li class="active"><a href="#tab-password" data-toggle="tab">Change Password</a></li>
+                                                <li><a href="#tab-timezone" data-toggle="tab">TimeZone</a></li>
+                                                <li><a href="#tab-info" data-toggle="tab">Edit Info</a></li>
+                                                <li><a href="#tab-2fa" data-toggle="tab">2FA</a></li>
+                                            </ul>
+                                            <div class="tab-content" style="padding-top: 15px;">
+                                                <div id="tab-password" class="tab-pane active">
+                                                    <form id="profile_password_form">
+                                                        <div class="form-group">
+                                                            <label>Current Password <span class="required">*</span></label>
+                                                            <div class="input-group">
+                                                                <input type="password" id="profile_current_password" class="form-control" maxlength="32" autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" required>
+                                                                <span class="input-group-btn">
+                                                                    <button class="btn btn-default toggle-password-visibility" type="button" data-target="#profile_current_password" aria-label="Show or hide password">
+                                                                        <i class="fa fa-eye"></i>
+                                                                    </button>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>New Password <span class="required">*</span></label>
+                                                            <div class="input-group">
+                                                                <input type="password" id="profile_new_password" class="form-control" maxlength="32" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" required>
+                                                                <span class="input-group-btn">
+                                                                    <button class="btn btn-default toggle-password-visibility" type="button" data-target="#profile_new_password" aria-label="Show or hide password">
+                                                                        <i class="fa fa-eye"></i>
+                                                                    </button>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Confirm New Password <span class="required">*</span></label>
+                                                            <div class="input-group">
+                                                                <input type="password" id="profile_new_password_confirm" class="form-control" maxlength="32" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-form-type="other" required>
+                                                                <span class="input-group-btn">
+                                                                    <button class="btn btn-default toggle-password-visibility" type="button" data-target="#profile_new_password_confirm" aria-label="Show or hide password">
+                                                                        <i class="fa fa-eye"></i>
+                                                                    </button>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" id="profile_save_password" class="btn btn-primary" style="margin-top: 15px;">Update Password</button>
+                                                    </form>
+                                                </div>
+                                                <div id="tab-timezone" class="tab-pane">
+                                                    <form id="profile_timezone_form">
+                                                        <div class="form-group">
+                                                            <label>Preferred TimeZone <span class="required">*</span></label>
+                                                            <select id="profile_timezone" class="form-control" required>
+                                                                {{template "layouts/timezone_options" .Timezones}}
+                                                            </select>
+                                                        </div>
+                                                        <button type="button" id="profile_save_timezone" class="btn btn-primary" style="margin-top: 15px;">Save TimeZone</button>
+                                                    </form>
+                                                </div>
+                                                <div id="tab-info" class="tab-pane">
+                                                    <form id="profile_info_form">
+                                                        <div class="form-group">
+                                                            <label>First Name <span class="required">*</span></label>
+                                                            <input type="text" id="profile_name" class="form-control" value="{{.User.Name}}" required>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Last Name <span class="required">*</span></label>
+                                                            <input type="text" id="profile_last_name" class="form-control" value="{{.User.LastName}}" required>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Email <span class="required">*</span></label>
+                                                            <input type="email" id="profile_email" class="form-control" value="{{.User.Email}}" required>
+                                                        </div>
+                                                        <button type="button" id="profile_save_info" class="btn btn-primary" style="margin-top: 15px;">Save Profile</button>
+                                                    </form>
+                                                </div>
+                                                <div id="tab-2fa" class="tab-pane">
+                                                    <p>Two-factor authentication settings.</p>
+                                                    <div class="checkbox">
+                                                        <label><input type="checkbox" id="profile_2fa_enabled" {{if .TwoFAEnabled}}checked{{end}}> Enable 2FA</label>
+                                                    </div>
+                                                    <button type="button" id="profile_save_2fa" class="btn btn-primary" style="margin-top: 10px;">Save 2FA Settings</button>
+
+                                                    <div id="profile_2fa_setup_block" class="panel panel-default" style="margin-top: 15px; display: none;">
+                                                        <div class="panel-heading">
+                                                            <strong>Connect Authenticator App</strong>
+                                                        </div>
+                                                        <div class="panel-body">
+                                                            <p style="margin-bottom: 8px;">1. Add a new account in your authenticator app.</p>
+                                                            <p style="margin-bottom: 8px;">2. Scan this QR code:</p>
+                                                            <div style="margin-bottom: 12px; text-align: left;">
+                                                                <img id="profile_2fa_qr_image" alt="2FA QR code" style="max-width: 256px; width: auto; border: 1px solid #ddd; padding: 6px; background: #fff; display: block;" />
+                                                            </div>
+
+                                                            <p style="margin-bottom: 8px;">3. Or enter this code manually:</p>
+                                                            <div style="word-break: break-all; margin-bottom: 10px;"><code id="profile_2fa_secret_value"></code></div>
+
+                                                            <div class="form-group" style="margin-top: 12px;">
+                                                                <label>Verification Code <span class="required">*</span></label>
+                                                                <input type="text" id="profile_2fa_verify_code" class="form-control" maxlength="6" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" placeholder="Enter 6-digit code">
+                                                            </div>
+
+                                                            <div class="form-group" style="margin-top: 12px; margin-bottom: 0;">
+                                                                <button type="button" id="profile_verify_2fa" class="btn btn-success">Verify and Enable 2FA</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div id="profile_2fa_recovery_block" class="panel panel-warning" style="margin-top: 15px; display: none;">
+                                                        <div class="panel-heading">
+                                                            <strong>Recovery Codes</strong>
+                                                        </div>
+                                                        <div class="panel-body">
+                                                            <p style="margin-bottom: 10px;"><strong>Save these codes now.</strong> Each code can be used only once if you lose access to your authenticator app.</p>
+                                                            <ul id="profile_2fa_recovery_codes_list" style="margin-bottom: 0; font-family: monospace;"></ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </section>
+            </div>
+        </section>
+
+        <script src="/assets/vendor/jquery-ui/js/jquery-ui-1.10.4.custom.min.js"></script>
+        <script src="/assets/vendor/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js"></script>
+        <script src="/assets/vendor/jquery-datatables/media/js/jquery.dataTables.js"></script>
+        <script src="/assets/vendor/jquery-datatables/extras/TableTools/js/dataTables.tableTools.min.js"></script>
+        <script src="/assets/vendor/jquery-datatables-bs3/assets/js/datatables.js"></script>
+        <script src="/assets/vendor/magnific-popup/magnific-popup.js"></script>
+        <script src="/assets/vendor/pnotify/pnotify.custom.js"></script>
+        <script src="/assets/vendor/bootstrap-fileupload/bootstrap-fileupload.min.js"></script>
+        <script src="/assets/vendor/nanoscroller/nanoscroller.js"></script>
+        <script src="/assets/vendor/select2/select2.js"></script>
+
+        <script src="/assets/javascripts/theme.js"></script>
+        <script src="/assets/javascripts/ct.js"></script>
+
+        <script>
+            $(function() {
+                $('#profile_timezone').select2({
+                    width: '100%'
+                });
+
+                function notifySuccess(text) {
+                    new PNotify({
+                        title: 'Success',
+                        text: text,
+                        type: 'success',
+                        addclass: 'stack-bar-top',
+                        width: '100%'
+                    });
+                }
+
+                function notifyError(text) {
+                    new PNotify({
+                        title: 'Error',
+                        text: text || 'Operation failed',
+                        type: 'error',
+                        addclass: 'stack-bar-top',
+                        width: '100%'
+                    });
+                }
+
+                var twoFAEnabledState = String($('body').data('twofa-enabled')) === '1';
+
+                function setTwoFALabel(enabled) {
+                    var $label = $('#profile_info_2fa');
+                    if (enabled) {
+                        $label.removeClass('label-default').addClass('label-success').text('Enabled');
+                    } else {
+                        $label.removeClass('label-success').addClass('label-default').text('Disabled');
+                    }
+                }
+
+                function clearTwoFASetupBlock() {
+                    $('#profile_2fa_setup_block').hide();
+                    $('#profile_2fa_qr_image').attr('src', '');
+                    $('#profile_2fa_secret_value').text('');
+                    $('#profile_2fa_verify_code').val('').removeClass('err').css('background-color', '');
+                }
+
+                function showRecoveryCodes(codes) {
+                    var $block = $('#profile_2fa_recovery_block');
+                    var $list = $('#profile_2fa_recovery_codes_list');
+
+                    $list.empty();
+                    if (!codes || !codes.length) {
+                        $block.hide();
+                        return;
+                    }
+
+                    $.each(codes, function(_, code) {
+                        $list.append($('<li>').text(code));
+                    });
+
+                    $block.show();
+                }
+
+                function hideRecoveryCodes() {
+                    $('#profile_2fa_recovery_codes_list').empty();
+                    $('#profile_2fa_recovery_block').hide();
+                }
+
+                function setButtonLoading($button, loadingText) {
+                    $button.data('original-text', $button.text());
+                    $button.prop('disabled', true).text(loadingText);
+                }
+
+                function restoreButton($button) {
+                    var original = $button.data('original-text');
+                    $button.prop('disabled', false).text(original || $button.text());
+                }
+
+                var validationColors = {
+                    softErrorBackground: '#ffeaea',
+                    hardErrorBackground: '#f48e70',
+                    successBackground: '#e8f5e9',
+                    errorBorder: '#d2322d'
+                };
+
+                function setFieldInvalidState($field, invalid, hardError) {
+                    var invalidBg = hardError ? validationColors.hardErrorBackground : validationColors.softErrorBackground;
+
+                    if (invalid) {
+                        if (hardError) {
+                            $field.addClass('err');
+                        } else {
+                            $field.removeClass('err');
+                        }
+                        $field.css('background-color', invalidBg);
+                    } else {
+                        $field.removeClass('err').css('background-color', '');
+                    }
+
+                    if ($field.is('select')) {
+                        var $container = $field.siblings('.select2-container');
+                        if (!$container.length) {
+                            $container = $field.next('.select2-container');
+                        }
+
+                        if ($container.length) {
+                            var $select2Visual = $container.find('.select2-choice, .select2-selection').first();
+                            if ($select2Visual.length) {
+                                if (invalid) {
+                                    $select2Visual.css({
+                                        'border-color': validationColors.errorBorder,
+                                        'background-color': invalidBg
+                                    });
+                                } else {
+                                    $select2Visual.css({
+                                        'border-color': '',
+                                        'background-color': ''
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var profilePasswordSpecialRegex = /[!@#$%^&*()_+\-=\[\]{};:,.?/\\|]/;
+                var profilePasswordAllowedRegex = /^[A-Za-z\d!@#$%^&*()_+\-=\[\]{};:,.?/\\|]+$/;
+
+                function isProfilePasswordStrong(password) {
+                    if (password.length < 10) {
+                        return false;
+                    }
+
+                    return /[a-z]/.test(password) &&
+                        /[A-Z]/.test(password) &&
+                        /\d/.test(password) &&
+                        profilePasswordSpecialRegex.test(password) &&
+                        profilePasswordAllowedRegex.test(password);
+                }
+
+                function ensureProfilePasswordIndicators() {
+                    var newPassLabel = $('#profile_new_password').closest('.form-group').find('label').first();
+                    var confirmLabel = $('#profile_new_password_confirm').closest('.form-group').find('label').first();
+
+                    if (newPassLabel.find('.profile-pass-valid-icon').length === 0) {
+                        newPassLabel.append(' <i class="fa fa-check text-success profile-pass-valid-icon" style="display:none"></i>');
+                    }
+
+                    if (confirmLabel.find('.profile-pass-confirm-valid-icon').length === 0) {
+                        confirmLabel.append(' <i class="fa fa-check text-success profile-pass-confirm-valid-icon" style="display:none"></i>');
+                    }
+                }
+
+                function resetProfilePasswordVisualState() {
+                    var currentInput = $('#profile_current_password');
+                    var newInput = $('#profile_new_password');
+                    var confirmInput = $('#profile_new_password_confirm');
+
+                    currentInput.removeClass('err').css('background-color', '');
+                    newInput.removeClass('err').css('background-color', '');
+                    confirmInput.removeClass('err').css('background-color', '');
+
+                    newInput.closest('.form-group').removeClass('has-success');
+                    confirmInput.closest('.form-group').removeClass('has-success');
+
+                    $('.profile-pass-valid-icon, .profile-pass-confirm-valid-icon').hide();
+                }
+
+                function updateProfilePasswordVisualState(markErrors) {
+                    ensureProfilePasswordIndicators();
+                    var invalidBg = markErrors ? validationColors.hardErrorBackground : validationColors.softErrorBackground;
+
+                    var currentPassword = $('#profile_current_password').val() || '';
+                    var newPassword = $('#profile_new_password').val() || '';
+                    var confirmPassword = $('#profile_new_password_confirm').val() || '';
+
+                    var currentInput = $('#profile_current_password');
+                    var newInput = $('#profile_new_password');
+                    var confirmInput = $('#profile_new_password_confirm');
+
+                    var newGroup = newInput.closest('.form-group');
+                    var confirmGroup = confirmInput.closest('.form-group');
+                    var newIcon = newGroup.find('.profile-pass-valid-icon');
+                    var confirmIcon = confirmGroup.find('.profile-pass-confirm-valid-icon');
+
+                    var currentValid = currentPassword.length > 0;
+                    var newValid = isProfilePasswordStrong(newPassword);
+                    var confirmValid = newPassword.length > 0 && confirmPassword.length > 0 && newPassword === confirmPassword;
+
+                    currentInput.css('background-color', '');
+                    newInput.css('background-color', '');
+                    confirmInput.css('background-color', '');
+
+                    newGroup.removeClass('has-success');
+                    confirmGroup.removeClass('has-success');
+                    newIcon.hide();
+                    confirmIcon.hide();
+
+                    if (!markErrors) {
+                        currentInput.removeClass('err');
+                        newInput.removeClass('err');
+                        confirmInput.removeClass('err');
+                    }
+
+                    if (currentPassword.length > 0) {
+                        currentInput.removeClass('err').css('background-color', validationColors.successBackground);
+                    } else if (markErrors) {
+                        currentInput.addClass('err').css('background-color', invalidBg);
+                    }
+
+                    if (newPassword.length > 0 && newValid) {
+                        newGroup.addClass('has-success');
+                        newInput.removeClass('err').css('background-color', validationColors.successBackground);
+                        newIcon.show();
+                    } else if (newPassword.length > 0 && !newValid) {
+                        newInput.css('background-color', invalidBg);
+                        if (markErrors) {
+                            newInput.addClass('err');
+                        }
+                    } else if (markErrors) {
+                        newInput.addClass('err').css('background-color', invalidBg);
+                    }
+
+                    if (confirmPassword.length > 0 && confirmValid) {
+                        confirmGroup.addClass('has-success');
+                        confirmInput.removeClass('err').css('background-color', validationColors.successBackground);
+                        confirmIcon.show();
+                    } else if (confirmPassword.length > 0 && !confirmValid) {
+                        confirmInput.css('background-color', invalidBg);
+                        if (markErrors) {
+                            confirmInput.addClass('err');
+                        }
+                    } else if (markErrors) {
+                        confirmInput.addClass('err').css('background-color', invalidBg);
+                    }
+
+                    return {
+                        currentValid: currentValid,
+                        newValid: newValid,
+                        confirmValid: confirmValid
+                    };
+                }
+
+                function ensureProfileEmailIndicator() {
+                    var emailLabel = $('#profile_email').closest('.form-group').find('label').first();
+                    if (emailLabel.find('.profile-email-valid-icon').length === 0) {
+                        emailLabel.append(' <i class="fa fa-check text-success profile-email-valid-icon" style="display:none"></i>');
+                    }
+                }
+
+                function updateProfileEmailVisualState(markErrors) {
+                    ensureProfileEmailIndicator();
+                    var invalidBg = markErrors ? validationColors.hardErrorBackground : validationColors.softErrorBackground;
+
+                    var emailInput = $('#profile_email');
+                    var emailGroup = emailInput.closest('.form-group');
+                    var emailIcon = emailGroup.find('.profile-email-valid-icon');
+                    var emailValue = (emailInput.val() || '').toString().trim();
+                    var hasValue = emailValue.length > 0;
+                    var emailValid = hasValue && emailInput[0].checkValidity();
+
+                    emailGroup.removeClass('has-success');
+                    emailIcon.hide();
+
+                    if (!markErrors) {
+                        emailInput.removeClass('err').css('background-color', '');
+                    }
+
+                    if (hasValue && emailValid) {
+                        emailGroup.addClass('has-success');
+                        emailInput.removeClass('err').css('background-color', validationColors.successBackground);
+                        emailIcon.show();
+                    } else if (hasValue && !emailValid) {
+                        emailInput.css('background-color', invalidBg);
+                        if (markErrors) {
+                            emailInput.addClass('err');
+                        }
+                    } else if (markErrors) {
+                        emailInput.addClass('err').css('background-color', invalidBg);
+                    }
+
+                    return {
+                        emailValid: emailValid
+                    };
+                }
+
+                function validateRequiredForm($form, hardError) {
+                    var isValid = true;
+                    $form.find('[required]').each(function() {
+                        var $field = $(this);
+                        var value = ($field.val() || '').toString().trim();
+                        var fieldValid = value !== '';
+
+                        if (fieldValid && this.type === 'email') {
+                            fieldValid = this.checkValidity();
+                        }
+
+                        setFieldInvalidState($field, !fieldValid, !!hardError);
+                        if (!fieldValid) {
+                            isValid = false;
+                        }
+                    });
+                    return isValid;
+                }
+
+                $('#profile_info_form [required]:not(#profile_email), #profile_timezone_form [required]').on('input change blur', function() {
+                    var $field = $(this);
+                    var value = ($field.val() || '').toString().trim();
+                    var isValid = value !== '';
+
+                    if (isValid && this.type === 'email') {
+                        isValid = this.checkValidity();
+                    }
+
+                    setFieldInvalidState($field, !isValid, false);
+                });
+
+                $('#profile_email').on('input change blur', function() {
+                    updateProfileEmailVisualState(false);
+                });
+
+                $('#profile_current_password, #profile_new_password, #profile_new_password_confirm').on('input', function() {
+                    updateProfilePasswordVisualState(false);
+                });
+
+                $('.toggle-password-visibility').on('click', function() {
+                    var targetSelector = $(this).data('target');
+                    var $input = $(targetSelector);
+                    if ($input.length === 0) {
+                        return;
+                    }
+
+                    var isPassword = $input.attr('type') === 'password';
+                    $input.attr('type', isPassword ? 'text' : 'password');
+                    $(this).find('i').toggleClass('fa-eye fa-eye-slash');
+                });
+
+                var currentTimezone = '{{.User.Timezone}}';
+                if (!currentTimezone) {
+                    currentTimezone = 'UTC';
+                }
+                $('#profile_timezone').val(currentTimezone).trigger('change');
+
+                $('#profile_save_timezone').on('click', function() {
+                    if (!validateRequiredForm($('#profile_timezone_form'), true)) {
+                        notifyError('Fill all required fields');
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    setButtonLoading($btn, 'Saving...');
+
+                    $.ajax({
+                        url: '/user_profile/ajax_update_timezone',
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            timezone: $('#profile_timezone').val()
+                        }
+                    }).done(function(resp) {
+                        if (resp && resp.success) {
+                            $('#profile_info_timezone').text(resp.data && resp.data.timezone ? resp.data.timezone : $('#profile_timezone').val());
+                            notifySuccess('Timezone saved');
+                        } else {
+                            notifyError(resp && resp.error ? resp.error : 'Failed to save timezone');
+                        }
+                    }).fail(function() {
+                        notifyError('Request failed');
+                    }).always(function() {
+                        restoreButton($btn);
+                    });
+                });
+
+                $('#profile_save_info').on('click', function() {
+                    var requiredValid = validateRequiredForm($('#profile_info_form'), true);
+                    var emailState = updateProfileEmailVisualState(true);
+                    if (!requiredValid || !emailState.emailValid) {
+                        notifyError('Fill all required fields');
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    setButtonLoading($btn, 'Saving...');
+
+                    $.ajax({
+                        url: '/user_profile/ajax_update_info',
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            name: $('#profile_name').val(),
+                            last_name: $('#profile_last_name').val(),
+                            email: $('#profile_email').val()
+                        }
+                    }).done(function(resp) {
+                        if (resp && resp.success) {
+                            var fullName = (resp.data && resp.data.name ? resp.data.name : '') + ' ' + (resp.data && resp.data.last_name ? resp.data.last_name : '');
+                            $('#profile_info_name').text($.trim(fullName));
+                            $('#profile_info_email').text(resp.data && resp.data.email ? resp.data.email : $('#profile_email').val());
+                            $('.profile-info .name').text($.trim(fullName));
+                            $('.profile-info .role').text(resp.data && resp.data.email ? resp.data.email : $('#profile_email').val());
+                            notifySuccess('Profile saved');
+                        } else {
+                            notifyError(resp && resp.error ? resp.error : 'Failed to save profile');
+                        }
+                    }).fail(function() {
+                        notifyError('Request failed');
+                    }).always(function() {
+                        restoreButton($btn);
+                    });
+                });
+
+                $('#profile_save_password').on('click', function() {
+                    var passwordState = updateProfilePasswordVisualState(true);
+                    if (!passwordState.currentValid || !passwordState.newValid || !passwordState.confirmValid) {
+                        notifyError('Check required password fields and password policy');
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    setButtonLoading($btn, 'Saving...');
+
+                    $.ajax({
+                        url: '/user_profile/ajax_update_password',
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            current_password: $('#profile_current_password').val(),
+                            new_password: $('#profile_new_password').val(),
+                            new_password_confirm: $('#profile_new_password_confirm').val()
+                        }
+                    }).done(function(resp) {
+                        if (resp && resp.success) {
+                            $('#profile_password_form')[0].reset();
+                            resetProfilePasswordVisualState();
+                            notifySuccess('Password updated');
+                        } else {
+                            notifyError(resp && resp.error ? resp.error : 'Failed to update password');
+                        }
+                    }).fail(function() {
+                        notifyError('Request failed');
+                    }).always(function() {
+                        restoreButton($btn);
+                    });
+                });
+
+                $('#profile_save_2fa').on('click', function() {
+                    var requestedEnable = $('#profile_2fa_enabled').is(':checked');
+
+                    // Enable flow starts setup and waits for verification code.
+                    if (requestedEnable && !twoFAEnabledState) {
+                        var $btnEnable = $(this);
+                        setButtonLoading($btnEnable, 'Starting...');
+
+                        $.ajax({
+                            url: '/user_profile/ajax_start_2fa_setup',
+                            method: 'POST',
+                            dataType: 'json'
+                        }).done(function(resp) {
+                            if (resp && resp.success && resp.data) {
+                                $('#profile_2fa_qr_image').attr('src', resp.data.qr_code || '');
+                                $('#profile_2fa_secret_value').text(resp.data.secret || '');
+                                $('#profile_2fa_setup_block').show();
+                                hideRecoveryCodes();
+                                notifySuccess('2FA setup started. Enter verification code from app.');
+                            } else {
+                                notifyError(resp && resp.error ? resp.error : 'Failed to start 2FA setup');
+                                $('#profile_2fa_enabled').prop('checked', false);
+                            }
+                        }).fail(function() {
+                            notifyError('Request failed');
+                            $('#profile_2fa_enabled').prop('checked', false);
+                        }).always(function() {
+                            restoreButton($btnEnable);
+                        });
+                        return;
+                    }
+
+                    // Already enabled and checkbox remains enabled: nothing to do.
+                    if (requestedEnable && twoFAEnabledState) {
+                        notifySuccess('2FA is already enabled');
+                        return;
+                    }
+
+                    // Disable flow.
+                    var $btn = $(this);
+                    setButtonLoading($btn, 'Saving...');
+
+                    $.ajax({
+                        url: '/user_profile/ajax_update_2fa',
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            enabled: '0'
+                        }
+                    }).done(function(resp) {
+                        if (resp && resp.success) {
+                            twoFAEnabledState = false;
+                            $('#profile_2fa_enabled').prop('checked', false);
+                            setTwoFALabel(false);
+                            clearTwoFASetupBlock();
+                            hideRecoveryCodes();
+                            notifySuccess('2FA disabled');
+                        } else {
+                            notifyError(resp && resp.error ? resp.error : 'Failed to save 2FA settings');
+                            $('#profile_2fa_enabled').prop('checked', twoFAEnabledState);
+                        }
+                    }).fail(function() {
+                        notifyError('Request failed');
+                        $('#profile_2fa_enabled').prop('checked', twoFAEnabledState);
+                    }).always(function() {
+                        restoreButton($btn);
+                    });
+                });
+
+                $('#profile_verify_2fa').on('click', function() {
+                    var code = ($('#profile_2fa_verify_code').val() || '').toString().trim();
+                    var codeOk = /^[0-9]{6}$/.test(code);
+                    setFieldInvalidState($('#profile_2fa_verify_code'), !codeOk, true);
+
+                    if (!codeOk) {
+                        notifyError('Enter 6-digit verification code');
+                        return;
+                    }
+
+                    var $btn = $(this);
+                    setButtonLoading($btn, 'Verifying...');
+
+                    $.ajax({
+                        url: '/user_profile/ajax_verify_2fa_setup',
+                        method: 'POST',
+                        dataType: 'json',
+                        data: {
+                            code: code
+                        }
+                    }).done(function(resp) {
+                        if (resp && resp.success) {
+                            twoFAEnabledState = true;
+                            $('#profile_2fa_enabled').prop('checked', true);
+                            setTwoFALabel(true);
+                            clearTwoFASetupBlock();
+                            showRecoveryCodes(resp.data && resp.data.recovery_codes ? resp.data.recovery_codes : []);
+                            notifySuccess('2FA enabled successfully');
+                        } else {
+                            notifyError(resp && resp.error ? resp.error : 'Failed to verify 2FA code');
+                        }
+                    }).fail(function() {
+                        notifyError('Request failed');
+                    }).always(function() {
+                        restoreButton($btn);
+                    });
+                });
+            });
+        </script>
+    </body>
+</html>
+{{end}}

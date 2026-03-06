@@ -165,7 +165,15 @@ func main() {
 		})
 	})
 	r.GET("/", userController.Home)
+	r.GET("/user_profile/", userController.UserProfile)
+	r.POST("/user_profile/ajax_update_timezone", userController.AjaxUpdateProfileTimezone)
+	r.POST("/user_profile/ajax_update_info", userController.AjaxUpdateProfileInfo)
+	r.POST("/user_profile/ajax_update_password", userController.AjaxUpdateProfilePassword)
+	r.POST("/user_profile/ajax_update_2fa", userController.AjaxUpdateProfile2FA)
+	r.POST("/user_profile/ajax_start_2fa_setup", userController.AjaxStartProfile2FASetup)
+	r.POST("/user_profile/ajax_verify_2fa_setup", userController.AjaxVerifyProfile2FASetup)
 	r.GET("/login", userController.ShowLoginPage)
+	r.GET("/login/2fa", userController.ShowLogin2FAPage)
 
 	// TEMP: Дебаг endpoint для проверки пользователя из контекста
 	r.GET("/debug/user", func(c *gin.Context) {
