@@ -25,13 +25,21 @@ type Config struct {
 	Logging   LoggingConfig   `mapstructure:"logging"`    // Настройки логирования
 }
 
-// HSMConfig defines HSM client settings used by web-ui for 2FA secret encryption.
+// HSMConfig defines HSM client settings with two isolated contexts.
+// Trading context is used for exchange API credentials encryption.
+// TwoFA context is used for user 2FA secrets.
 type HSMConfig struct {
-	Enabled bool              `mapstructure:"enabled"`
-	URL     string            `mapstructure:"url"`
+	Enabled bool             `mapstructure:"enabled"`
+	URL     string           `mapstructure:"url"`
+	Timeout time.Duration    `mapstructure:"timeout"`
+	Retry   HSMRetryConfig   `mapstructure:"retry"`
+	Trading HSMContextConfig `mapstructure:"trading"`
+	TwoFA   HSMContextConfig `mapstructure:"two_fa"`
+}
+
+// HSMContextConfig contains per-context name and mTLS settings.
+type HSMContextConfig struct {
 	Context string            `mapstructure:"context"`
-	Timeout time.Duration     `mapstructure:"timeout"`
-	Retry   HSMRetryConfig    `mapstructure:"retry"`
 	TLS     DatabaseTLSConfig `mapstructure:"tls"`
 }
 
@@ -540,20 +548,35 @@ func validate(cfg *Config) error {
 		if strings.TrimSpace(cfg.HSM.URL) == "" {
 			return fmt.Errorf("hsm.url is required when hsm.enabled=true")
 		}
-		if strings.TrimSpace(cfg.HSM.Context) == "" {
-			cfg.HSM.Context = "2fa"
+		if strings.TrimSpace(cfg.HSM.Trading.Context) == "" {
+			cfg.HSM.Trading.Context = "exchange-key"
+		}
+		if strings.TrimSpace(cfg.HSM.TwoFA.Context) == "" {
+			cfg.HSM.TwoFA.Context = "2fa"
+		}
+		if strings.EqualFold(strings.TrimSpace(cfg.HSM.Trading.Context), strings.TrimSpace(cfg.HSM.TwoFA.Context)) {
+			return fmt.Errorf("hsm.trading.context and hsm.two_fa.context must be different")
 		}
 		if cfg.HSM.Timeout == 0 {
 			cfg.HSM.Timeout = 10 * time.Second
 		}
-		if strings.TrimSpace(cfg.HSM.TLS.CAPath) == "" {
-			return fmt.Errorf("hsm.tls.ca_path is required when hsm.enabled=true")
+		if strings.TrimSpace(cfg.HSM.Trading.TLS.CAPath) == "" {
+			return fmt.Errorf("hsm.trading.tls.ca_path is required when hsm.enabled=true")
 		}
-		if strings.TrimSpace(cfg.HSM.TLS.CertPath) == "" {
-			return fmt.Errorf("hsm.tls.cert_path is required when hsm.enabled=true")
+		if strings.TrimSpace(cfg.HSM.Trading.TLS.CertPath) == "" {
+			return fmt.Errorf("hsm.trading.tls.cert_path is required when hsm.enabled=true")
 		}
-		if strings.TrimSpace(cfg.HSM.TLS.KeyPath) == "" {
-			return fmt.Errorf("hsm.tls.key_path is required when hsm.enabled=true")
+		if strings.TrimSpace(cfg.HSM.Trading.TLS.KeyPath) == "" {
+			return fmt.Errorf("hsm.trading.tls.key_path is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.TwoFA.TLS.CAPath) == "" {
+			return fmt.Errorf("hsm.two_fa.tls.ca_path is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.TwoFA.TLS.CertPath) == "" {
+			return fmt.Errorf("hsm.two_fa.tls.cert_path is required when hsm.enabled=true")
+		}
+		if strings.TrimSpace(cfg.HSM.TwoFA.TLS.KeyPath) == "" {
+			return fmt.Errorf("hsm.two_fa.tls.key_path is required when hsm.enabled=true")
 		}
 		if cfg.HSM.Retry.MaxAttempts == 0 {
 			cfg.HSM.Retry.MaxAttempts = 3
