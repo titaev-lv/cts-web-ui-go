@@ -205,6 +205,111 @@ func (r *ExchangeAccountRepository) FindAllByUser(userID int) ([]*models.Exchang
 	return accounts, nil
 }
 
+// FindActiveByUserExchange returns active, non-deleted user accounts for one exchange.
+func (r *ExchangeAccountRepository) FindActiveByUserExchange(userID, exchangeID int) ([]*models.ExchangeAccount, error) {
+	query := `SELECT
+		ea.ID,
+		ea.EXID,
+		e.NAME AS EXCHANGE_NAME,
+		e.ACTIVE AS EXCHANGE_ACTIVE,
+		ea.UID,
+		ea.ACCOUNT_NAME,
+		ea.PRIORITY,
+		ea.ACTIVE,
+		ea.API_KEY_ENC,
+		ea.SECRET_KEY_ENC,
+		ea.ADD_KEY_ENC,
+		ea.DEK_ENC,
+		ea.ENC_KEY_VERSION,
+		ea.ENC_ALG,
+		ea.NOTE,
+		ea.DELETED,
+		ea.TIMESTAMP_X
+	FROM EXCHANGE_ACCOUNTS ea
+	JOIN EXCHANGE e ON e.ID = ea.EXID
+	WHERE ea.UID = ?
+	  AND ea.EXID = ?
+	  AND ea.DELETED = 0
+	  AND ea.ACTIVE = 1
+	  AND e.DELETED = 0
+	  AND e.ACTIVE = 1
+	ORDER BY ea.PRIORITY DESC, ea.ID ASC`
+
+	rows, err := db.DB.Query(query, userID, exchangeID)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	defer rows.Close()
+
+	accounts := make([]*models.ExchangeAccount, 0)
+	for rows.Next() {
+		var acc models.ExchangeAccount
+		var exchangeName sql.NullString
+		var exchangeActive sql.NullBool
+		var apiKey, secretKey, addKey, dekEnc, encAlg, note sql.NullString
+		var encKeyVersion sql.NullInt64
+
+		err := rows.Scan(
+			&acc.ID,
+			&acc.ExID,
+			&exchangeName,
+			&exchangeActive,
+			&acc.UID,
+			&acc.AccountName,
+			&acc.Priority,
+			&acc.Active,
+			&apiKey,
+			&secretKey,
+			&addKey,
+			&dekEnc,
+			&encKeyVersion,
+			&encAlg,
+			&note,
+			&acc.Deleted,
+			&acc.DateCreate,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+
+		if exchangeName.Valid {
+			acc.ExchangeName = exchangeName.String
+		}
+		if exchangeActive.Valid {
+			acc.ExchangeActive = exchangeActive.Bool
+		}
+		if apiKey.Valid {
+			acc.ApiKey = apiKey.String
+		}
+		if secretKey.Valid {
+			acc.SecretKey = secretKey.String
+		}
+		if dekEnc.Valid {
+			acc.DekEnc = dekEnc.String
+		}
+		if encKeyVersion.Valid {
+			acc.EncKeyVersion = int(encKeyVersion.Int64)
+		}
+		if encAlg.Valid {
+			acc.EncAlg = encAlg.String
+		}
+		if addKey.Valid {
+			acc.AddKey = &addKey.String
+		}
+		if note.Valid {
+			acc.Note = &note.String
+		}
+
+		accounts = append(accounts, &acc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return accounts, nil
+}
+
 // CountByUser возвращает количество аккаунтов пользователя (не удалённых).
 func (r *ExchangeAccountRepository) CountByUser(userID int) (int, error) {
 	query := `SELECT COUNT(*) FROM EXCHANGE_ACCOUNTS WHERE UID = ? AND DELETED = 0`

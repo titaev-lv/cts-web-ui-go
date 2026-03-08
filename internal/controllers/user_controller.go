@@ -494,9 +494,9 @@ func getHSM2FAClient() (*hsm.Client, string, error) {
 	hsmClientOnce.Do(func() {
 		hsmClientInst, hsmClientErr = hsm.NewClient(hsm.ClientConfig{
 			BaseURL:        cfg.HSM.URL,
-			CertPath:       cfg.HSM.TLS.CertPath,
-			KeyPath:        cfg.HSM.TLS.KeyPath,
-			CAPath:         cfg.HSM.TLS.CAPath,
+			CertPath:       cfg.HSM.TwoFA.TLS.CertPath,
+			KeyPath:        cfg.HSM.TwoFA.TLS.KeyPath,
+			CAPath:         cfg.HSM.TwoFA.TLS.CAPath,
 			RequestTimeout: cfg.HSM.Timeout,
 			RetryConfig: hsm.RetryConfig{
 				MaxAttempts: cfg.HSM.Retry.MaxAttempts,
@@ -510,7 +510,7 @@ func getHSM2FAClient() (*hsm.Client, string, error) {
 	if hsmClientErr != nil {
 		return nil, "", hsmClientErr
 	}
-	return hsmClientInst, cfg.HSM.Context, nil
+	return hsmClientInst, cfg.HSM.TwoFA.Context, nil
 }
 
 func parseHSMKeyVersion(keyID string) int {

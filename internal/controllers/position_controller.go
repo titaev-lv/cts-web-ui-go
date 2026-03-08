@@ -331,6 +331,97 @@ func (pc *PositionController) AjaxUploadTransactionCSV(c *gin.Context) {
 	})
 }
 
+func (pc *PositionController) AjaxPrepareExchangeImport(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	user := userVal.(*models.User)
+
+	positionID, _ := strconv.Atoi(c.PostForm("position_id"))
+	result, err := pc.service.PrepareExchangeImport(user.ID, positionID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":                true,
+		"mode":                   result.Mode,
+		"warning":                result.Warning,
+		"accounts":               result.Accounts,
+		"auto_select_account_id": result.AutoSelectAccountID,
+	})
+}
+
+func (pc *PositionController) AjaxPreviewExchangeImport(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	user := userVal.(*models.User)
+
+	positionID, _ := strconv.Atoi(c.PostForm("position_id"))
+	accountID, _ := strconv.Atoi(c.PostForm("exchange_account_id"))
+
+	result, err := pc.service.PreviewExchangeImport(user.ID, user.Timezone, positionID, accountID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	if strings.TrimSpace(result.Warning) != "" && strings.TrimSpace(result.PreviewToken) == "" {
+		c.JSON(http.StatusOK, gin.H{"success": false, "warning": result.Warning})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"preview_token": result.PreviewToken,
+		"rows":          result.Rows,
+	})
+}
+
+func (pc *PositionController) AjaxImportExchangeTransactions(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	user := userVal.(*models.User)
+
+	positionID, _ := strconv.Atoi(c.PostForm("position_id"))
+	previewToken := c.PostForm("preview_token")
+
+	selected := c.PostFormArray("selected_ids[]")
+	if len(selected) == 0 {
+		selected = c.PostFormArray("selected_ids")
+	}
+	if len(selected) == 0 {
+		raw := strings.TrimSpace(c.PostForm("selected_ids"))
+		if raw != "" {
+			if err := json.Unmarshal([]byte(raw), &selected); err != nil {
+				selected = nil
+			}
+		}
+	}
+
+	result, err := pc.service.ImportExchangeTransactions(user.ID, positionID, previewToken, selected)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":        true,
+		"inserted":       result.Inserted,
+		"skipped":        result.Skipped,
+		"total_selected": result.TotalSelected,
+	})
+}
+
 func (pc *PositionController) AjaxDeleteTransaction(c *gin.Context) {
 	userVal, exists := c.Get("user")
 	if !exists {

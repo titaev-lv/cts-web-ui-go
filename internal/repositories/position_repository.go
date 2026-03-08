@@ -11,6 +11,15 @@ import (
 
 type PositionRepository struct{}
 
+type PositionExchangeDetails struct {
+	PositionID   int
+	ExchangeID   int
+	ExchangeName string
+	MarketType   string
+	ContractName string
+	OpenedAtUTC  time.Time
+}
+
 func NewPositionRepository() *PositionRepository {
 	return &PositionRepository{}
 }
@@ -583,6 +592,49 @@ func (r *PositionRepository) GetPositionMarketType(positionID, userID int) (stri
 		return "", fmt.Errorf("get position market type: %w", err)
 	}
 	return marketType, nil
+}
+
+func (r *PositionRepository) GetPositionExchangeAndContract(userID, positionID int) (*PositionExchangeDetails, error) {
+	query := `SELECT p.ID, p.EXID, e.NAME, p.MARKET_TYPE, p.NAME, p.CREATED
+			FROM POS_POSITIONS p
+			JOIN EXCHANGE e ON e.ID = p.EXID
+			WHERE p.USER_ID = ? AND p.ID = ?
+			LIMIT 1`
+
+	var details PositionExchangeDetails
+	if err := db.DB.QueryRow(query, userID, positionID).Scan(
+		&details.PositionID,
+		&details.ExchangeID,
+		&details.ExchangeName,
+		&details.MarketType,
+		&details.ContractName,
+		&details.OpenedAtUTC,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get position exchange and contract: %w", err)
+	}
+
+	return &details, nil
+}
+
+func (r *PositionRepository) GetLastTransactionDate(positionID, userID int) (*time.Time, error) {
+	query := `SELECT MAX(t.TRANS_DATE)
+			FROM POS_TRANSACTIONS t
+			JOIN POS_POSITIONS p ON p.ID = t.POSITION_ID
+			WHERE p.USER_ID = ? AND p.ID = ?`
+
+	var lastDate sql.NullTime
+	if err := db.DB.QueryRow(query, userID, positionID).Scan(&lastDate); err != nil {
+		return nil, fmt.Errorf("get last transaction date: %w", err)
+	}
+	if !lastDate.Valid {
+		return nil, nil
+	}
+
+	value := lastDate.Time.UTC()
+	return &value, nil
 }
 
 func (r *PositionRepository) InsertFundingTransaction(positionID int, funding float64, transDateUTC time.Time) error {

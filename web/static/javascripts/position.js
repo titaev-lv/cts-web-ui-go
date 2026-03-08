@@ -176,6 +176,232 @@ function parseAjaxResponse(response) {
   return {};
 }
 
+function getCurrentPositionID() {
+  const params = new URLSearchParams(window.location.search);
+  const positionID = parseInt(params.get("position"), 10);
+  return Number.isInteger(positionID) && positionID > 0 ? positionID : 0;
+}
+
+function openInlineModal(src, focusSelector) {
+  $.magnificPopup.open({
+    items: [{ src: src, type: 'inline', modal: true }],
+    closeOnContentClick: false,
+    closeOnBgClick: false,
+    callbacks: {
+      beforeOpen: function() {
+        if($(window).width() < 700) {
+          this.st.focus = false;
+        } else {
+          this.st.focus = focusSelector || false;
+        }
+      }
+    }
+  });
+}
+
+function renderExchangeAccountSelection(accounts) {
+  var body = $('#exchange-accounts-select-body');
+  body.empty();
+
+  accounts.forEach(function(account) {
+    var safeName = $('<div>').text(account.name || '').html();
+    var row = '' +
+      '<tr>' +
+      '<td>' + safeName + '</td>' +
+      '<td><button type="button" class="btn btn-primary btn-xs btn-select-exchange-account" data-account-id="' + account.id + '">Select</button></td>' +
+      '</tr>';
+    body.append(row);
+  });
+}
+
+function renderExchangePreviewRows(rows) {
+  var body = $('#exchange-import-preview-body');
+  body.empty();
+  $('#checkallExchangePreview').prop('checked', false);
+
+  rows.forEach(function(row) {
+    var html = '' +
+      '<tr>' +
+      '<td><input type="checkbox" class="exchange-preview-row" data-row-id="' + row.id + '"></td>' +
+      '<td>' + (row.type || '') + '</td>' +
+      '<td>' + formatDisplayNumber(row.price, 8) + '</td>' +
+      '<td>' + formatDisplayNumber(row.volume, 8) + '</td>' +
+      '<td>' + formatDisplayNumber(row.fee_base_currency, 8) + '</td>' +
+      '<td>' + formatDisplayNumber(row.fee_quote_currency, 8) + '</td>' +
+      '<td>' + formatDisplayNumber(row.funding, 8) + '</td>' +
+      '<td>' + formatDateTimeNoMillis(row.transaction_date) + '</td>' +
+      '</tr>';
+    body.append(html);
+  });
+}
+
+function requestExchangePreview(positionID, accountID) {
+  var formData = new FormData();
+  formData.append('position_id', positionID);
+  formData.append('exchange_account_id', accountID);
+
+  $.ajax({
+    url: '/positions_calc/position/ajax_preview_exchange_import.php',
+    type: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(response) {
+      var ret = parseAjaxResponse(response);
+
+      if(ret.success !== true) {
+        var warningText = ret.warning || ret.error || 'Failed to load exchange transactions';
+        new PNotify({ title: 'Warning', text: warningText, type: 'warning', addclass: 'stack-bar-top', width: '100%' });
+        return;
+      }
+
+      $('#exchange_preview_token').val(ret.preview_token || '');
+      renderExchangePreviewRows(Array.isArray(ret.rows) ? ret.rows : []);
+
+      if(!ret.rows || ret.rows.length === 0) {
+        new PNotify({ title: 'Warning', text: 'No transactions found for selected filters', type: 'warning', addclass: 'stack-bar-top', width: '100%' });
+        return;
+      }
+
+      openInlineModal('#modalForm-import-exchange-preview', '#btn-import-selected-exchange');
+    },
+    error: function(data) {
+      if(data.status == 401) {
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+      new PNotify({ title: 'Error', text: 'Error ' + data.status + ' ' + data.statusText, type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    }
+  });
+}
+
+$('#btn-update-from-exchange').on('click', function(e) {
+  e.preventDefault();
+
+  var positionID = getCurrentPositionID();
+  if(positionID <= 0) {
+    new PNotify({ title: 'Error', text: 'Position ID is invalid', type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    return;
+  }
+
+  var formData = new FormData();
+  formData.append('position_id', positionID);
+
+  $.ajax({
+    url: '/positions_calc/position/ajax_prepare_exchange_import.php',
+    type: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(response) {
+      var ret = parseAjaxResponse(response);
+      if(ret.success !== true) {
+        new PNotify({ title: 'Error', text: ret.error || 'Failed to prepare exchange import', type: 'error', addclass: 'stack-bar-top', width: '100%' });
+        return;
+      }
+
+      if(ret.mode === 'no_accounts') {
+        new PNotify({ title: 'Warning', text: ret.warning || 'No active account', type: 'warning', addclass: 'stack-bar-top', width: '100%' });
+        return;
+      }
+
+      if(ret.mode === 'single_account' && ret.auto_select_account_id) {
+        requestExchangePreview(positionID, ret.auto_select_account_id);
+        return;
+      }
+
+      if(ret.mode === 'select_account' && Array.isArray(ret.accounts) && ret.accounts.length > 0) {
+        renderExchangeAccountSelection(ret.accounts);
+        openInlineModal('#modalForm-select-exchange-account', '.btn-select-exchange-account');
+        return;
+      }
+
+      new PNotify({ title: 'Warning', text: 'No active account', type: 'warning', addclass: 'stack-bar-top', width: '100%' });
+    },
+    error: function(data) {
+      if(data.status == 401) {
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+      new PNotify({ title: 'Error', text: 'Error ' + data.status + ' ' + data.statusText, type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    }
+  });
+});
+
+$('#exchange-accounts-select-body').on('click', '.btn-select-exchange-account', function(e) {
+  e.preventDefault();
+  var accountID = parseInt($(this).data('account-id'), 10);
+  var positionID = getCurrentPositionID();
+  if(!Number.isInteger(accountID) || accountID <= 0 || positionID <= 0) {
+    new PNotify({ title: 'Error', text: 'Invalid account selection', type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    return;
+  }
+  $.magnificPopup.close();
+  requestExchangePreview(positionID, accountID);
+});
+
+$('#checkallExchangePreview').on('click', function() {
+  var state = this.checked;
+  $('#exchange-import-preview-body').find('input.exchange-preview-row').each(function() {
+    this.checked = state;
+  });
+});
+
+$('#btn-import-selected-exchange').on('click', function(e) {
+  e.preventDefault();
+
+  var positionID = getCurrentPositionID();
+  var token = ($('#exchange_preview_token').val() || '').trim();
+  if(positionID <= 0 || token === '') {
+    new PNotify({ title: 'Error', text: 'Preview session is invalid', type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    return;
+  }
+
+  var selectedIDs = [];
+  $('#exchange-import-preview-body').find('input.exchange-preview-row:checked').each(function() {
+    selectedIDs.push(String($(this).data('row-id')));
+  });
+
+  if(selectedIDs.length === 0) {
+    new PNotify({ title: 'Warning', text: 'Select at least one transaction', type: 'warning', addclass: 'stack-bar-top', width: '100%' });
+    return;
+  }
+
+  var formData = new FormData();
+  formData.append('position_id', positionID);
+  formData.append('preview_token', token);
+  selectedIDs.forEach(function(id) {
+    formData.append('selected_ids[]', id);
+  });
+
+  $.ajax({
+    url: '/positions_calc/position/ajax_import_exchange_transactions.php',
+    type: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(response) {
+      var ret = parseAjaxResponse(response);
+      if(ret.success !== true) {
+        new PNotify({ title: 'Error', text: ret.error || 'Import failed', type: 'error', addclass: 'stack-bar-top', width: '100%' });
+        return;
+      }
+
+      $.magnificPopup.close();
+      new PNotify({ text: String(ret.inserted || 0) + ' transactions imported', type: 'success', addclass: 'stack-bar-top', width: '100%' });
+
+      if (typeof table !== 'undefined' && table) {
+        table.draw();
+      }
+      getPosition(positionID);
+    },
+    error: function(data) {
+      if(data.status == 401) {
+        setTimeout(function(){ location.reload(); }, 800);
+      }
+      new PNotify({ title: 'Error', text: 'Error ' + data.status + ' ' + data.statusText, type: 'error', addclass: 'stack-bar-top', width: '100%' });
+    }
+  });
+});
+
 function trimTrailingZeros(value) {
   if (typeof value !== 'string' || value.indexOf('e') !== -1 || value.indexOf('E') !== -1) {
     return value;

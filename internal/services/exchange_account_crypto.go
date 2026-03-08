@@ -36,9 +36,9 @@ func getExchangeHSMClient() (*hsm.Client, string, error) {
 	exchangeHSMClientOnce.Do(func() {
 		exchangeHSMClientInst, exchangeHSMClientErr = hsm.NewClient(hsm.ClientConfig{
 			BaseURL:        cfg.HSM.URL,
-			CertPath:       cfg.HSM.TLS.CertPath,
-			KeyPath:        cfg.HSM.TLS.KeyPath,
-			CAPath:         cfg.HSM.TLS.CAPath,
+			CertPath:       cfg.HSM.Trading.TLS.CertPath,
+			KeyPath:        cfg.HSM.Trading.TLS.KeyPath,
+			CAPath:         cfg.HSM.Trading.TLS.CAPath,
 			RequestTimeout: cfg.HSM.Timeout,
 			RetryConfig: hsm.RetryConfig{
 				MaxAttempts: cfg.HSM.Retry.MaxAttempts,
@@ -53,9 +53,9 @@ func getExchangeHSMClient() (*hsm.Client, string, error) {
 		return nil, "", exchangeHSMClientErr
 	}
 
-	ctxName := strings.TrimSpace(cfg.HSM.Context)
+	ctxName := strings.TrimSpace(cfg.HSM.Trading.Context)
 	if ctxName == "" {
-		ctxName = "2fa"
+		ctxName = "exchange-key"
 	}
 	return exchangeHSMClientInst, ctxName, nil
 }
@@ -97,10 +97,7 @@ func decryptWithDEK(dek []byte, ciphertext string) (string, error) {
 	if value == "" {
 		return "", nil
 	}
-
-	if strings.HasPrefix(value, exchangeCredEncPrefix) {
-		value = strings.TrimPrefix(value, exchangeCredEncPrefix)
-	}
+	value = strings.TrimPrefix(value, exchangeCredEncPrefix)
 
 	raw, err := base64.StdEncoding.DecodeString(value)
 	if err != nil {
@@ -154,9 +151,9 @@ func keyIDFromEncMeta(encAlg string, encKeyVersion int) string {
 	}
 
 	if encKeyVersion > 0 {
-		return "kek-2fa-v" + strconv.Itoa(encKeyVersion)
+		return "kek-exchange-key-v" + strconv.Itoa(encKeyVersion)
 	}
-	return "kek-2fa-v1"
+	return "kek-exchange-key-v1"
 }
 
 func encryptDEKWithHSM(ctx context.Context, dek []byte) (dekEnc string, encKeyVersion int, encAlg string, err error) {
