@@ -62,6 +62,67 @@ $(document).ready(function() {
 	}
 });
 
+// Centralized handler for expired session during AJAX requests.
+// Redirects to /login instead of leaving the page in AJAX error state.
+(function () {
+	var authRedirectInProgress = false;
+
+	function redirectToLogin() {
+		if (authRedirectInProgress) {
+			return;
+		}
+		authRedirectInProgress = true;
+		window.location.href = '/login';
+	}
+
+	function isUnauthorizedPayload(xhr) {
+		if (!xhr || typeof xhr.responseText !== 'string' || xhr.responseText.trim() === '') {
+			return false;
+		}
+
+		try {
+			var payload = JSON.parse(xhr.responseText);
+			if (!payload || typeof payload.error !== 'string') {
+				return false;
+			}
+			var err = payload.error.toLowerCase();
+			return err.indexOf('unauthorized') !== -1 || err.indexOf('not found in context') !== -1;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	function isAjaxLoginRedirect(xhr, settings) {
+		if (!xhr || !settings || typeof settings.url !== 'string') {
+			return false;
+		}
+
+		// Skip auth endpoints themselves.
+		if (settings.url.indexOf('/login') !== -1 || settings.url.indexOf('/auth/login') !== -1) {
+			return false;
+		}
+
+		var responseURL = xhr.responseURL || '';
+		if (responseURL.indexOf('/login') === -1) {
+			return false;
+		}
+
+		var contentType = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+		return contentType.indexOf('text/html') !== -1;
+	}
+
+	$(document).ajaxComplete(function (event, xhr, settings) {
+		if (xhr && (xhr.status === 401 || xhr.status === 403)) {
+			redirectToLogin();
+			return;
+		}
+
+		if (isAjaxLoginRedirect(xhr, settings) || isUnauthorizedPayload(xhr)) {
+			redirectToLogin();
+		}
+	});
+})();
+
 function validateEmptyFormFieldsExample(form) {
 	var count = form.length;
 	var empty_field = false; 

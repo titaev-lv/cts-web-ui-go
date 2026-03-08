@@ -219,6 +219,16 @@ func isAPIRequest(c *gin.Context) bool {
 		return true
 	}
 
+	// jQuery/legacy AJAX requests usually send this header even with Accept */*.
+	if strings.EqualFold(c.GetHeader("X-Requested-With"), "XMLHttpRequest") {
+		return true
+	}
+
+	// Legacy UI endpoints follow ajax_* naming under non-/api/ routes.
+	if strings.Contains(c.Request.URL.Path, "/ajax_") {
+		return true
+	}
+
 	if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 		return true
 	}
