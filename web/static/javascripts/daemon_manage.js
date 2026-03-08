@@ -4,7 +4,7 @@ $(document).ready(function() {
         $('.darkness').css('display','block');
         $('.layer').css('display','block');   
         $.ajax({
-            url: "/daemon/ajax_check_status.php",
+            url: "/daemon/ajax_check_status",
             type: "POST", 
             success: function(response) { //Данные отправлены успешно
                 var ret = JSON.parse(response);
@@ -52,7 +52,7 @@ $(document).ready(function() {
         $('.darkness').css('display','block');
         $('.layer').css('display','block'); 
         $.ajax({
-            url: "/daemon/ajax_start.php",
+            url: "/daemon/ajax_start",
             type: "POST", 
             success: function(response) { //Данные отправлены успешно
                 var ret = JSON.parse(response);
@@ -100,7 +100,7 @@ $(document).ready(function() {
         $('.darkness').css('display','block');
         $('.layer').css('display','block'); 
         $.ajax({
-            url: "/daemon/ajax_stop.php",
+            url: "/daemon/ajax_stop",
             type: "POST", 
             success: function(response) { //Данные отправлены успешно
                 var ret = JSON.parse(response);
@@ -153,7 +153,7 @@ function getDaemonStatus () {
     var run = $('#daemon_status').text();
     if(run === 'ACTIVE') {
         $.ajax({
-            url: "/daemon/ajax_daemon_stat.php",
+            url: "/daemon/ajax_daemon_stat",
             type: "POST", 
             success: function(response) { //Данные отправлены успешно
                 var ret = JSON.parse(response);

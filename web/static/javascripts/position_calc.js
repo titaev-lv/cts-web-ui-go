@@ -143,7 +143,7 @@ $(document).ready(function() {
             },
             "ajax": {
                 "method": "POST",
-                "url": "/positions_calc/ajax_get_positions.php",
+                "url": "/positions_calc/ajax_get_positions",
                 "data": function ( d ) {
                     //d.filterMyInWork = $('#button-filter-my-in-work').val();
                     //d.filterMy = $('#button-filter-my').val();
@@ -246,7 +246,7 @@ $(document).ready(function() {
                formData.append(input.name,input.value);   
             });
             $.ajax({
-                url: "/positions_calc/ajax_create_position.php",
+                url: "/positions_calc/ajax_create_position",
                 type: "POST", 
                 data:formData,
                 processData: false,

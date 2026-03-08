@@ -72,7 +72,7 @@ $(document).ready(function() {
             },
             "ajax": {
                 "method": "POST",
-                "url": "/positions_calc/position/ajax_get_trans.php",
+                "url": "/positions_calc/position/ajax_get_trans",
                 "data": function ( d ) {
                     //d.filterMyInWork = $('#button-filter-my-in-work').val();
                     //d.filterMy = $('#button-filter-my').val();
@@ -241,7 +241,7 @@ function requestExchangePreview(positionID, accountID) {
   formData.append('exchange_account_id', accountID);
 
   $.ajax({
-    url: '/positions_calc/position/ajax_preview_exchange_import.php',
+    url: '/positions_calc/position/ajax_preview_exchange_import',
     type: 'POST',
     data: formData,
     processData: false,
@@ -287,7 +287,7 @@ $('#btn-update-from-exchange').on('click', function(e) {
   formData.append('position_id', positionID);
 
   $.ajax({
-    url: '/positions_calc/position/ajax_prepare_exchange_import.php',
+    url: '/positions_calc/position/ajax_prepare_exchange_import',
     type: 'POST',
     data: formData,
     processData: false,
@@ -373,7 +373,7 @@ $('#btn-import-selected-exchange').on('click', function(e) {
   });
 
   $.ajax({
-    url: '/positions_calc/position/ajax_import_exchange_transactions.php',
+    url: '/positions_calc/position/ajax_import_exchange_transactions',
     type: 'POST',
     data: formData,
     processData: false,
@@ -473,7 +473,7 @@ function getPosition(position_id) {
         var formData = new FormData();
         formData.append('position_id', position_id);   
         $.ajax({
-            url: "/positions_calc/position/ajax_get_position.php",
+            url: "/positions_calc/position/ajax_get_position",
             type: "POST", 
             data:formData,
             processData: false,
@@ -824,7 +824,7 @@ $('#close-pos-btn').on('click', function(e) {
     var position_id = parseInt(params.get("position"));
     
     $.ajax({
-        url: "/positions_calc/ajax_close_position.php", 
+        url: "/positions_calc/ajax_close_position", 
         type: 'POST',
         dataType: 'html',
         data: 'position_id='+position_id,
@@ -936,7 +936,7 @@ $('#edit_position_button').on('click', function(e) {
 
         // Send AJAX request
         $.ajax({
-            url: 'ajax_edit_position.php',
+            url: 'ajax_edit_position',
             type: 'POST',
             data: formData,
             dataType: 'json',
@@ -1007,7 +1007,7 @@ $('#delete_pos_confirm').on('click', function(e) {
    const params = new URLSearchParams(window.location.search);
    let position_id = parseInt(params.get("position"));
    $.ajax({
-        url: "/positions_calc/ajax_delete_position.php", 
+        url: "/positions_calc/ajax_delete_position", 
         type: 'POST',
         dataType: 'html',
         data: 'position_id='+position_id,
@@ -1102,7 +1102,7 @@ $('#edit-trans-btn').on('click', function(e) {
   formData.append('trans_id', trans_id);
 
   $.ajax({
-    url: "/positions_calc/position/ajax_get_trans.php",
+    url: "/positions_calc/position/ajax_get_trans",
     type: "POST",
     data: formData,
     processData: false,
@@ -1233,7 +1233,7 @@ $('#edit_trans_button').on('click', function(e) {
   }
 
   $.ajax({
-    url: "/positions_calc/position/ajax_edit_trans.php",
+    url: "/positions_calc/position/ajax_edit_trans",
     type: "POST",
     data: formData,
     processData: false,
@@ -1376,7 +1376,7 @@ $('#delete_trans_confirm').on('click', function(e) {
     formData.append('position_id', position_id);
     
     $.ajax({
-        url: "/positions_calc/position/ajax_delete_trans.php",
+        url: "/positions_calc/position/ajax_delete_trans",
         type: "POST", 
         data: formData,
         processData: false,
@@ -1466,7 +1466,7 @@ $('#add_trans_button').on('click', function(e) {
         formData.set('position_id', position_id);
       }
         $.ajax({
-            url: "/positions_calc/position/ajax_create_trans.php",
+            url: "/positions_calc/position/ajax_create_trans",
             type: "POST", 
             data:formData,
             processData: false,
@@ -1779,7 +1779,7 @@ $('#import_trans_csv_button').on('click', function(e) {
         var f = $('#import_trans_csv_file')[0].files[0];
         formData.append('file', f);
         $.ajax({
-            url: "/positions_calc/position/ajax_upload_trans_csv.php",
+            url: "/positions_calc/position/ajax_upload_trans_csv",
             type: "POST", 
             data:formData,
             processData: false,
@@ -2162,7 +2162,7 @@ class Kucoin extends Exchange {
       formData.append('symbol', symbol);
       formData.append('market', this.market);
       
-      const res = await fetch('/positions_calc/position/ajax_kucoin_price.php', {
+      const res = await fetch('/positions_calc/position/ajax_kucoin_price', {
         method: 'POST',
         body: formData
       });
@@ -2193,7 +2193,7 @@ class Kucoin extends Exchange {
       const formData = new FormData();
       formData.append('market', this.market);
       
-      const res = await fetch('/positions_calc/position/ajax_kucoin_token.php', {
+      const res = await fetch('/positions_calc/position/ajax_kucoin_token', {
         method: 'POST',
         body: formData
       });

@@ -2,7 +2,7 @@ $(document).ready(function() {
     $('#update_coins_button').on('click', function(e) {
         $('#result_update_coins').html('<img src="/assets/images/loading2.gif" style="padding-right:10px">');
         $.ajax({
-            url: "/coins/ajax_update_coins.php",
+            url: "/coins/ajax_update_coins",
             type: "POST", 
             dataType: "html",
             data: {'action':"update"},

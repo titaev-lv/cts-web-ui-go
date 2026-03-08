@@ -3,7 +3,7 @@ $(document).ready(function() {
         var ex = $('#exchange_1 option:selected').val();
         if(ex !== '') {
             $.ajax({
-                url: "/market_analysis/ajax_exchanges_step_1.php",
+                url: "/market_analysis/ajax_exchanges_step_1",
                 type: "POST", 
                 dataType: "html",
                 data: {'exchange_id':ex},
@@ -82,7 +82,7 @@ $(document).ready(function() {
         $('#trade_pair').val('');
         if(ex1 !== '' && ex2 !== '') {
            $.ajax({
-                url: "/market_analysis/ajax_exchanges_step_2.php",
+                url: "/market_analysis/ajax_exchanges_step_2",
                 type: "POST", 
                 dataType: "html",
                 data: {'exchange_id1':ex1,'exchange_id2':ex2},
@@ -157,7 +157,7 @@ $(document).ready(function() {
         $("#trade_list").find("option").each(function () {
             if ($(this).val() == userText) {
                 $.ajax({
-                    url: "/market_analysis/ajax_exchanges_step_3.php",
+                    url: "/market_analysis/ajax_exchanges_step_3",
                     type: "POST", 
                     dataType: "html",
                     data: {'exchange_id1':ex1,'exchange_id2':ex2, 'trade_pair': userText},
@@ -230,7 +230,7 @@ $(document).ready(function() {
         var trade_pair = $('#trade_pair').val();
         var timeframe = $('#timeframe option:selected').val();
         $.ajax({
-            url: "/market_analysis/ajax_exchanges_step_4.php",
+            url: "/market_analysis/ajax_exchanges_step_4",
             type: "POST", 
             dataType: "html",
             data: {'exchange_id1':ex1,'exchange_id2':ex2, 'trade_pair': trade_pair, 'timeframe':timeframe},
@@ -692,7 +692,7 @@ $(document).ready(function() {
             });
             table.draw();
             /*$.ajax({
-                url: "/market_analysis/ajax_direct_exs.php",
+                url: "/market_analysis/ajax_direct_exs",
                 type: "POST", 
                 dataType: "html",
                 data: {'symbol':symbol,'date_start':start, 'date_stop': stop},
@@ -774,7 +774,7 @@ $(document).ready(function() {
             },
             "ajax": {
                 "method": "POST",
-                "url": "/market_analysis/ajax_direct_exs.php",
+                "url": "/market_analysis/ajax_direct_exs",
                 "data": function ( d ) {
                     d.date_start = $('#date_start').val();
                     d.date_stop = $('#date_stop').val();
