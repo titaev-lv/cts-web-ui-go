@@ -7,8 +7,10 @@
 
 **Статус восстановления:**
 - ✅ Восстановлен рабочий каркас и основные модули (auth, users, groups, exchanges, exchange accounts)
+- ✅ Модуль `exchange_accounts` доведен до рабочего состояния (CRUD, валидация форм, UI ошибок, DataTables server-side sort/filter)
+- ✅ Добавлено защищенное хранение ключей бирж (envelope encryption: DEK + HSM KEK) и fallback re-key при недоступном legacy KEK
 - 🔴 Не восстановлены бизнес-модули (positions, market analysis, coins)
-- 🔴 Первая задача: унификация логирования с hsm-service (slog + JSON + stdout + file + lumberjack)
+- ✅ Первая задача (логирование): унификация с hsm-service выполнена
 
 ---
 
@@ -392,9 +394,10 @@ logging:
 ```
 
 **Остаточные задачи:**
-- [ ] Проверить output в docker для debug/release режимов
-- [ ] Подтвердить ротацию под нагрузкой
-- [ ] Актуализировать служебную документацию по эксплуатации
+- [x] Проверить output в docker для debug/release режимов
+- [x] Актуализировать служебную документацию по эксплуатации
+- [ ] Подтвердить ротацию под нагрузкой (длительный soak-тест)
+- [ ] Добавить алерты на деградацию log I/O (error/access/audit)
 
 ### Фаза 1: Базовая инфраструктура (1-2 недели)
 
@@ -478,6 +481,23 @@ GET  /groups/ajax_getid_group  → Получить по ID
 | 4.4 | Exchange Controller (List, Create, Edit) | ✅ |
 | 4.5 | Exchange Account Controller | ✅ |
 | 4.6 | UI Templates (Exchanges, Exchange Accounts) | ✅ |
+
+#### Актуализация фазы 4 (2026-03-07)
+
+**Сделано по `exchange_accounts`:**
+- ✅ Исправлены SQL/schema рассинхронизации (`*_ENC`, nullable scan, ambiguous columns)
+- ✅ В таблице используется `exchange_name` (JOIN с `EXCHANGE`), а не `exchange_id`
+- ✅ DataTables переведен на реальную server-side фильтрацию и сортировку, включая join-поля
+- ✅ Реализована валидация обязательных полей форм через `validateEmptyFormFields(...)` с подсветкой `.err`
+- ✅ Ошибки backend (`400`) корректно отображаются в UI (PNotify)
+- ✅ Реализовано шифрование API/Secret/Add key через DEK + HSM KEK
+- ✅ Добавлен fallback сценарий: re-key/reset ключей при недешифруемом legacy DEK (retired KEK)
+- ✅ Исправлен ложный кейс `RowsAffected=0` при update без изменений
+
+**Что еще имеет смысл сделать в этой фазе (минимальный хвост):**
+- [ ] Добавить интеграционные тесты create/edit для encrypted credentials и re-key fallback
+- [ ] Добавить audit-событие для forced re-key (legacy DEK unrecoverable)
+- [ ] Добавить runbook шаг для операторов: как перевыпускать ключи при retired KEK
 
 **API Endpoints:**
 ```
@@ -810,5 +830,5 @@ type Position struct {
 
 ---
 
-*Документ создан автоматически. Последнее обновление: 14 декабря 2024*
+*Документ создан автоматически. Последнее обновление: 7 марта 2026*
 
