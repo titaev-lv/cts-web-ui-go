@@ -9,7 +9,7 @@
 - ✅ Восстановлен рабочий каркас и основные модули (auth, users, groups, exchanges, exchange accounts)
 - ✅ Модуль `exchange_accounts` доведен до рабочего состояния (CRUD, валидация форм, UI ошибок, DataTables server-side sort/filter)
 - ✅ Добавлено защищенное хранение ключей бирж (envelope encryption: DEK + HSM KEK) и fallback re-key при недоступном legacy KEK
-- 🔴 Не восстановлены бизнес-модули (positions, market analysis, coins)
+- 🟡 Бизнес-модули восстановлены частично: `positions` реализован и подключен в роутинге; `market analysis`, `coins`, `daemon` пока не портированы в backend (часть UI-шаблонов legacy)
 - ✅ Первая задача (логирование): унификация с hsm-service выполнена
 
 ---
@@ -244,88 +244,39 @@ Web UI Logging Unification (Phase 4.1)
 
 ---
 
-## 📁 Структура проекта Go
+## 📁 Структура проекта Go (актуально на 2026-03-25)
 
 ```
-www-go/
+web-ui-go/
 ├── cmd/
 │   └── web/
-│       └── main.go                 # Entry point
+│       └── main.go
 ├── internal/
-│   ├── config/
-│   │   └── config.go               # Configuration loader
-│   ├── middleware/
-│   │   ├── auth.go                 # Authentication middleware
-│   │   ├── security.go             # XSS, CSRF, headers
-│   │   ├── logging.go              # Request logging
-│   │   └── recovery.go             # Panic recovery
-│   ├── models/
-│   │   ├── user.go
-│   │   ├── group.go
-│   │   ├── exchange.go
-│   │   ├── exchange_account.go
-│   │   ├── position.go
-│   │   └── coin.go
-│   ├── repositories/
-│   │   ├── user_repository.go
-│   │   ├── group_repository.go
-│   │   ├── exchange_repository.go
-│   │   ├── position_repository.go
-│   │   └── coin_repository.go
-│   ├── services/
-│   │   ├── auth_service.go
-│   │   ├── user_service.go
-│   │   ├── group_service.go
-│   │   ├── exchange_service.go
-│   │   ├── position_service.go
-│   │   ├── daemon_service.go
-│   │   └── coin_service.go
-│   ├── controllers/
-│   │   ├── auth_controller.go
-│   │   ├── user_controller.go
-│   │   ├── group_controller.go
-│   │   ├── exchange_controller.go
-│   │   ├── position_controller.go
-│   │   ├── daemon_controller.go
-│   │   ├── market_controller.go
-│   │   └── coin_controller.go
-│   ├── dto/
-│   │   ├── request/                # Request DTOs with validation
-│   │   └── response/               # Response DTOs
+│   ├── config/                     # config.go, http2.go
+│   ├── controllers/                # user/group/exchange/exchange_account/position
 │   ├── db/
-│   │   └── mysql.go
-│   ├── utils/
-│   │   ├── password.go             # bcrypt hashing
-│   │   ├── validator.go            # Input validation
-│   │   └── sanitizer.go            # HTML/XSS sanitization
-│   └── logger/
-│       └── logger.go
-├── web/
-│   ├── static/                     # Static assets (from PHP assets)
-│   │   ├── images/
-│   │   ├── javascripts/
-│   │   ├── stylesheets/
-│   │   └── vendor/
-│   └── templates/                  # HTML templates
-│       ├── layouts/
-│       │   ├── base.html
-│       │   ├── header.html
-│       │   └── footer.html
-│       ├── auth/
-│       │   └── login.html
-│       ├── errors/
-│       │   ├── 404.html
-│       │   └── 500.html
-│       ├── users/
-│       ├── groups/
-│       ├── exchanges/
-│       ├── positions/
-│       ├── market/
-│       └── coins/
+│   ├── dto/
+│   ├── errors/
+│   ├── hsm/                        # интеграция с hsm-service
+│   ├── logger/
+│   ├── middleware/                 # auth, admin, security, csrf, request_id, access/audit/recovery
+│   ├── models/                     # user/group/exchange/exchange_account/position
+│   ├── repositories/               # user/group/exchange/exchange_account/position
+│   ├── services/                   # auth, user, exchange, position, csv/exchange import
+│   ├── session/
+│   └── utils/                      # password, validation, timezone, totp, qr
 ├── config/
-│   └── config.yaml                 # Application config
+│   ├── config.direct.example.yaml
+│   ├── config.direct.yaml
+│   ├── config.proxy.example.yaml
+│   └── config.proxy.yaml
+├── web/
+│   ├── static/
+│   └── templates/                  # users/groups/exchanges/exchange_accounts/positions + legacy market/coins/daemon
+├── migrations/
+├── php/                            # legacy PHP artifacts for migration parity
+├── LOGGING_RUNBOOK.md
 ├── go.mod
-├── go.sum
 └── Dockerfile
 ```
 
@@ -355,7 +306,7 @@ require (
 
 **Статус:** Базовая реализация завершена, идёт финальная полировка.
 
-**Структура логирования (2 потока):**
+**Структура логирования (3 потока):**
 
 1. **access.log** - логирование HTTP запросов (request/response logging)
    - Middleware для отслеживания всех входящих запросов
@@ -372,9 +323,15 @@ require (
    - Ротация: lumberjack (max 100MB, keep 5 backups, 30 days)
    - Пример: `{"timestamp":"2026-02-10T10:30:45Z","level":"error","message":"Failed to load user groups","user_id":123,"error":"connection timeout"}`
 
-3. **Stdout** (реал-тайм мониторинг в Docker logs)
+3. **audit.log** - аудит security/admin/mutating событий
+    - Middleware: `AuditLogMiddleware`
+    - Формат: JSON
+    - Поля: event_type, action, resource_type, result, request_id, user_id, ip
+    - Ротация: lumberjack
+
+4. **Stdout** (реал-тайм мониторинг в Docker logs)
    - Все логи дублируются в stdout для docker logs
-   - Оба потока (access + error) видны в docker logs <service>
+    - Все три потока (access + error + audit) видны в docker logs <service>
 
 **Конфигурация (config.yaml):**
 ```yaml
@@ -522,15 +479,15 @@ GET  /exchange_accounts/ajax_getid_accounts
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 5.1 | Position Model (позиции, транзакции) | ☐ |
-| 5.2 | Position Repository | ☐ |
-| 5.3 | Transaction Model и Repository | ☐ |
-| 5.4 | Position Service (создание, закрытие, расчёты) | ☐ |
-| 5.5 | Transaction Service (CRUD) | ☐ |
-| 5.6 | CSV Upload (загрузка транзакций) | ☐ |
-| 5.7 | KuCoin API Integration (цены, токены) | ☐ |
-| 5.8 | Position Controller | ☐ |
-| 5.9 | UI Templates (список позиций, детали) | ☐ |
+| 5.1 | Position Model (позиции, транзакции) | ✅ |
+| 5.2 | Position Repository | ✅ |
+| 5.3 | Transaction Model и Repository | ✅ |
+| 5.4 | Position Service (создание, закрытие, расчёты) | ✅ |
+| 5.5 | Transaction Service (CRUD) | ✅ |
+| 5.6 | CSV Upload (загрузка транзакций) | ✅ |
+| 5.7 | KuCoin API Integration (цены, токены) | ✅ |
+| 5.8 | Position Controller | ✅ |
+| 5.9 | UI Templates (список позиций, детали) | ✅ |
 
 **API Endpoints:**
 ```
@@ -547,11 +504,11 @@ POST /positions_calc/position/ajax_get_trans
 POST /positions_calc/position/ajax_create_trans
 POST /positions_calc/position/ajax_delete_trans
 POST /positions_calc/position/ajax_upload_trans_csv
-GET  /positions_calc/position/ajax_kucoin_price
-GET  /positions_calc/position/ajax_kucoin_token
+POST /positions_calc/position/ajax_kucoin_price
+POST /positions_calc/position/ajax_kucoin_token
 ```
 
-**Результат:** Полное управление торговыми позициями
+**Результат:** Модуль `positions` реализован и подключен; дальнейшая задача — расширение интеграционных тестов и polish
 
 ---
 
@@ -605,7 +562,7 @@ POST /coins/ajax_update_coins
 | # | Задача | Статус |
 |---|--------|--------|
 | 8.1 | XSS Protection (bluemonday sanitization) | ⚠️ |
-| 8.2 | CSRF Protection (gorilla/csrf) | ☐ |
+| 8.2 | CSRF Protection (gorilla/csrf) | ⚠️ |
 | 8.3 | SQL Injection (prepared statements) | ✅ |
 | 8.4 | Rate Limiting (защита от brute-force) | ⚠️ |
 | 8.5 | Secure Headers (X-Frame-Options, CSP) | ✅ |
