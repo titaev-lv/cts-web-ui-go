@@ -669,9 +669,9 @@ func (c *Config) GetMySQLDSN() string {
 	}
 	if cfg.TLS.Enabled {
 		if strings.Contains(dsn, "?") {
-			dsn += "&tls=true"
+			dsn += "&tls=custom"
 		} else {
-			dsn += "?tls=true"
+			dsn += "?tls=custom"
 		}
 	}
 

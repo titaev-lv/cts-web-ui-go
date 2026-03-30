@@ -3,14 +3,17 @@
 package db
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"ctweb/internal/config" // Пакет конфигурации
 	"database/sql"          // Стандартная библиотека Go для работы с БД
 	"fmt"                   // Форматирование строк для ошибок
 	"log"                   // Простое логирование
+	"os"
 
 	// Импортируем драйвер MySQL (пустой импорт _ означает, что используем только init() функцию драйвера)
 	// Драйвер регистрирует себя в database/sql при импорте
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 )
 
 // DB - глобальная переменная для хранения соединения с базой данных.
@@ -49,6 +52,35 @@ func Connect() {
 
 	// Получаем строку подключения (Data Source Name)
 	// Формат: "user:password@tcp(host:port)/database?charset=utf8mb4&parseTime=true"
+	mysqlCfg := cfg.Databases.System.MySQL
+	if mysqlCfg.TLS.Enabled {
+		cert, err := tls.LoadX509KeyPair(mysqlCfg.TLS.CertPath, mysqlCfg.TLS.KeyPath)
+		if err != nil {
+			log.Fatalf("Failed to load MySQL client certificate: %v", err)
+		}
+
+		caPEM, err := os.ReadFile(mysqlCfg.TLS.CAPath)
+		if err != nil {
+			log.Fatalf("Failed to read MySQL CA certificate: %v", err)
+		}
+
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(caPEM) {
+			log.Fatalf("Failed to parse MySQL CA certificate")
+		}
+
+		tlsConfig := &tls.Config{
+			RootCAs:      caPool,
+			Certificates: []tls.Certificate{cert},
+			ServerName:   mysqlCfg.Host,
+			MinVersion:   tls.VersionTLS12,
+		}
+
+		if err := mysql.RegisterTLSConfig("custom", tlsConfig); err != nil {
+			log.Fatalf("Failed to register MySQL TLS config: %v", err)
+		}
+	}
+
 	dsn := cfg.GetMySQLDSN()
 
 	// Открываем соединение с базой данных
@@ -67,7 +99,6 @@ func Connect() {
 	// Пул соединений - это набор готовых соединений с БД, которые переиспользуются.
 	// Это повышает производительность, т.к. не нужно каждый раз устанавливать новое соединение.
 
-	mysqlCfg := cfg.Databases.System.MySQL
 	poolCfg := mysqlCfg.Pool
 
 	// SetMaxOpenConns - максимальное количество открытых соединений одновременно

@@ -37,7 +37,7 @@ databases:
     mysql:
       host: "ct-system-mysql"
       port: 3306
-      user: "root"
+      user: "cts-web"
       password: "root"
       database: "ct_system"
       charset: "utf8mb4"
@@ -48,10 +48,10 @@ databases:
         conn_max_lifetime: 300s
         conn_max_idle_time: 60s
       tls:
-        enabled: false
-        ca_path: ""
-        cert_path: ""
-        key_path: ""
+        enabled: true
+        ca_path: "pki/ca/ca.crt"
+        cert_path: "pki/mysql/web-ui-mysql.crt"
+        key_path: "pki/mysql/web-ui-mysql.key"
       retry:
         max_attempts: 3
         initial_delay: 1s
